@@ -8,82 +8,84 @@
 <title>Fujin Labs Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  /* Admin console, same clay language as the public page. Sticky tab bar, then one scrolling column of cards. */
+  /* Admin console, clean light with orange accents. Sticky tab bar, then one scrolling column of white cards. */
   :root{
     color-scheme:light;
-    --bg:#e6ecf7; --surface:#f2f5fc; --well:#e4eaf6;
-    --ink:#1f2b45; --muted:#5b6784;
-    --coral:#ff7a59; --coral-deep:#e4502b; --mint:#3fcf9f; --mint-deep:#0e7a58; --sun:#ffc94d; --sky:#78c2ff; --warn:#b3431f;
-    --sh-dark:rgba(139,156,190,.55); --sh-light:#ffffff;
-    --display:"Fredoka","Trebuchet MS",system-ui,sans-serif; --body:"Nunito","Segoe UI",system-ui,sans-serif;
-    --clay:10px 14px 28px var(--sh-dark), -8px -8px 22px var(--sh-light), inset 0 -4px 8px rgba(139,156,190,.22), inset 0 4px 8px rgba(255,255,255,.95);
-    --clay-sm:6px 8px 16px var(--sh-dark), -5px -5px 12px var(--sh-light), inset 0 -3px 5px rgba(139,156,190,.2), inset 0 3px 5px rgba(255,255,255,.95);
-    --pressed:inset 5px 5px 10px rgba(139,156,190,.5), inset -5px -5px 10px #ffffff;
+    --bg:#faf7f3; --card:#ffffff; --tint:#fff3e8; --line:#eaded1; --well:#f6efe7;
+    --ink:#1d1a17; --muted:#6b625a;
+    --orange:#e8590c; --orange-deep:#c2410c; --orange-soft:#ffe4cf; --amber:#ffb703;
+    --green:#15803d; --green-soft:#dcfce7; --warn:#b42318;
+    --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif; --body:"Plus Jakarta Sans","Segoe UI",system-ui,sans-serif;
+    --shadow:0 1px 2px rgba(60,35,10,.06), 0 8px 24px rgba(60,35,10,.07);
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font:500 16px/1.5 var(--body);padding-block:24px 56px;
+  body{margin:0;background:var(--bg);color:var(--ink);font:500 16px/1.5 var(--body);padding-block:20px 56px;
     padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-  main{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+  main{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
   h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
-  h2{font-size:22px} h3{font-size:17px}
-  .card{background:var(--surface);border-radius:28px;box-shadow:var(--clay);padding:20px}
+  h2{font-size:21px} h3{font-size:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:20px}
   .top{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between}
-  .top h1{font-size:28px}
+  .top h1{font-size:26px;font-weight:800}
   .row{display:flex;flex-wrap:wrap;gap:10px}
-  input,select,textarea{font:600 16px var(--body);color:var(--ink);background:var(--well);border:0;border-radius:16px;padding:12px 14px;min-height:48px;width:100%;min-width:0;box-shadow:var(--pressed)}
+  input,select,textarea{font:500 16px var(--body);color:var(--ink);background:#fff;border:1.5px solid #dccfc1;border-radius:12px;padding:11px 13px;min-height:46px;width:100%;min-width:0}
   textarea{min-height:76px;resize:vertical}
-  input:focus,select:focus,textarea:focus{outline:3px solid var(--sky);outline-offset:2px}
-  label{display:flex;flex-direction:column;gap:6px;font:700 13px var(--display);color:var(--muted)}
-  button{font:700 15px var(--display);border:0;cursor:pointer;color:#fff;border-radius:18px;min-height:46px;padding:10px 18px;
-    background:linear-gradient(160deg,#ff8f6e,var(--coral-deep));
-    box-shadow:5px 7px 14px rgba(228,80,43,.32),inset -3px -4px 8px rgba(0,0,0,.14),inset 3px 3px 8px rgba(255,255,255,.4)}
-  button:active{transform:translateY(1px)}
-  button.soft{background:var(--surface);color:var(--ink);box-shadow:var(--clay-sm)}
-  button.danger{background:var(--surface);color:var(--warn);box-shadow:var(--clay-sm)}
-  button.danger.sure{background:linear-gradient(160deg,#e4502b,#a8300f);color:#fff}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 4px rgba(232,89,12,.18)}
+  label{display:flex;flex-direction:column;gap:6px;font:700 13px var(--body);color:var(--muted)}
+  button{font:700 15px var(--body);border:0;cursor:pointer;color:#fff;border-radius:12px;min-height:44px;padding:10px 18px;background:var(--orange);
+    box-shadow:0 2px 0 var(--orange-deep),0 6px 14px rgba(232,89,12,.25)}
+  button:hover{background:#f06512}
+  button:active{transform:translateY(2px);box-shadow:none}
+  button.soft{background:#fff;color:var(--orange-deep);border:1.5px solid #f0c9a8;box-shadow:none}
+  button.soft:hover{background:var(--tint)}
+  button.danger{background:#fff;color:var(--warn);border:1.5px solid #f2b8b1;box-shadow:none}
+  button.danger.sure{background:var(--warn);color:#fff;border-color:var(--warn)}
   button:disabled{opacity:.6;cursor:wait}
-  button:focus-visible{outline:3px solid var(--sky);outline-offset:3px}
-  .msg{font:600 14px var(--body);margin:0;min-height:1.2em;color:var(--muted)} .msg.bad{color:var(--warn)} .msg.ok{color:var(--mint-deep)}
-  .banner{border-radius:20px;background:#fff6dc;color:#6b4e00;font-size:14px;padding:12px 16px;box-shadow:var(--clay-sm)}
+  button:focus-visible{outline:3px solid #ffb27a;outline-offset:3px}
+  .msg{font:600 14px var(--body);margin:0;min-height:1.2em;color:var(--muted)} .msg.bad{color:var(--warn)} .msg.ok{color:var(--green)}
+  .banner{border-radius:12px;background:#fff8e1;border:1px solid #f5dd90;color:#6b4e00;font-size:14px;padding:12px 14px}
+  .conn{display:inline-flex;align-items:center;gap:8px;font:700 13px var(--body);padding:5px 12px;border-radius:99px;background:var(--green-soft);color:var(--green)}
+  .conn::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+  .conn.demo{background:#fff8e1;color:#8a6100}
 
-  #login{max-width:420px;margin:12vh auto 0;width:100%;display:flex;flex-direction:column;gap:16px}
-  .tabs{display:flex;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;padding:6px 2px;overflow-x:auto}
-  .tabs button{background:var(--surface);color:var(--ink);box-shadow:var(--clay-sm);flex:none}
-  .tabs button[aria-selected="true"]{background:linear-gradient(160deg,#ff8f6e,var(--coral-deep));color:#fff}
+  #login{max-width:420px;margin:10vh auto 0;width:100%;display:flex;flex-direction:column;gap:16px}
+  .tabs{display:flex;gap:8px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;padding:8px 2px;overflow-x:auto;background:var(--bg)}
+  .tabs button{background:#fff;color:var(--ink);border:1.5px solid var(--line);box-shadow:none;flex:none}
+  .tabs button[aria-selected="true"]{background:var(--orange);color:#fff;border-color:var(--orange)}
 
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px}
-  .stat{background:var(--surface);border-radius:24px;box-shadow:var(--clay-sm);padding:16px}
-  .stat b{display:block;font:700 34px/1.1 var(--display);font-variant-numeric:tabular-nums}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px}
+  .stat b{display:block;font:800 34px/1.1 var(--display);font-variant-numeric:tabular-nums}
   .stat span{color:var(--muted);font-size:13px;font-weight:700}
-  .stat.alert b{color:var(--coral-deep)}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  .stat.alert{background:var(--tint);border-color:#f3b88a} .stat.alert b{color:var(--orange-deep)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
   @media(max-width:760px){.grid2{grid-template-columns:1fr}}
-  ol.lb{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
-  ol.lb li{display:flex;align-items:center;gap:12px;background:var(--well);box-shadow:var(--pressed);border-radius:18px;padding:10px 14px}
-  ol.lb .rk{font:700 16px var(--display);width:26px;color:var(--muted)}
+  ol.lb{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+  ol.lb li{display:flex;align-items:center;gap:12px;background:var(--well);border-radius:12px;padding:10px 14px}
+  ol.lb .rk{font:800 16px var(--display);width:26px;color:var(--orange-deep)}
   ol.lb .nm{flex:1;min-width:0;overflow-wrap:anywhere;font-weight:700}
-  ol.lb .ct{font:700 20px var(--display);font-variant-numeric:tabular-nums}
+  ol.lb .ct{font:800 20px var(--display);font-variant-numeric:tabular-nums}
   .bars{display:flex;flex-direction:column;gap:10px;margin-top:14px}
   .bars div.b{display:grid;grid-template-columns:110px 1fr 34px;align-items:center;gap:10px;font-size:14px;font-weight:700}
-  .bars .tr{height:16px;border-radius:99px;background:var(--well);box-shadow:var(--pressed);padding:3px}
-  .bars .tr i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--sun),var(--coral))}
+  .bars .tr{height:12px;border-radius:99px;background:var(--orange-soft)}
+  .bars .tr i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--amber),var(--orange))}
 
   .filters{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px}
   @media(max-width:640px){.filters{grid-template-columns:1fr}}
-  .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr));gap:18px;margin-top:18px}
-  .person{background:var(--surface);border-radius:26px;box-shadow:var(--clay-sm);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+  .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr));gap:16px;margin-top:18px}
+  .person{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
   .person h3{overflow-wrap:anywhere}
-  .meta{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+  .meta{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px;margin:0}
   .meta dt{color:var(--muted);font-weight:700} .meta dd{margin:0;overflow-wrap:anywhere}
-  .pill{display:inline-block;border-radius:99px;padding:3px 12px;font:700 12px var(--display);background:var(--well);box-shadow:var(--pressed)}
-  .pill.eligible{background:#ffe3d9;color:var(--coral-deep)} .pill.paid{background:#d9f5ea;color:var(--mint-deep)}
+  .pill{display:inline-block;border-radius:99px;padding:3px 12px;font:700 12px var(--body);background:var(--well);color:var(--ink)}
+  .pill.eligible{background:var(--orange-soft);color:var(--orange-deep)} .pill.paid{background:var(--green-soft);color:var(--green)}
   .pills{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-  .edit{display:flex;flex-direction:column;gap:10px;border-top:2px dashed #cfd8ec;padding-top:12px}
+  .edit{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:12px}
   .tier-edit{display:grid;grid-template-columns:90px 1fr 110px auto;gap:10px;align-items:end;margin-top:12px}
   .tier-edit .full{grid-column:1/-1}
-  @media(max-width:640px){.tier-edit{grid-template-columns:1fr 1fr;padding:12px;border-radius:20px;background:var(--well);box-shadow:var(--pressed)}.tier-edit>*{grid-column:1/-1}}
+  @media(max-width:640px){.tier-edit{grid-template-columns:1fr 1fr;padding:12px;border-radius:14px;background:var(--well)}.tier-edit>*{grid-column:1/-1}}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -102,7 +104,7 @@
 
   <div id="app" hidden>
     <div class="top card" style="padding:16px 20px">
-      <h1>Fujin Labs Admin</h1>
+      <div><h1>Fujin Labs Admin</h1><span class="conn" id="conn">Connected to Google Sheet</span></div>
       <div class="row">
         <button class="soft" id="reload" type="button">Refresh</button>
         <button class="soft" id="exportCsv" type="button">Export CSV</button>
@@ -145,7 +147,7 @@
 
 <script>
 /* ---- Setting: same Web app URL as index.html ---- */
-const CONFIG = { SHEET_API_URL: "" };
+const CONFIG = { SHEET_API_URL: "https://script.google.com/macros/s/AKfycbxILgBFXVbMXhCIOjwt2EqK8rkyl3pEs3VW-6QlWUt3Z2o6DV46rWyHUhiUGDmuvYqa/exec" };
 
 const $ = id => document.getElementById(id);
 const DEMO = !CONFIG.SHEET_API_URL;
@@ -190,7 +192,7 @@ function demo(action, b){
 /* ---- Login ---- */
 function pwGet(){ try{ return sessionStorage.getItem("fujin_admin") || ""; }catch(e){ return ""; } }
 function pwSet(v){ try{ v ? sessionStorage.setItem("fujin_admin", v) : sessionStorage.removeItem("fujin_admin"); }catch(e){} }
-if(DEMO) $("demoNote").hidden = false;
+if(DEMO){ $("demoNote").hidden = false; $("conn").textContent = "Demo mode (not your Sheet)"; $("conn").classList.add("demo"); }
 
 async function enter(pw, auto){
   PASSWORD = pw; $("loginErr").textContent = "";
