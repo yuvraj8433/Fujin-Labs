@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Fujin Labs Refer and Earn</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main>
+  <!-- Page 2 of 2: rewards, your code and your referral count. People who joined are sent here after the form. -->
+  <div class="card top">
+    <div class="brand"><i></i>Fujin Labs</div>
+    <a class="btn" href="index.html">Join form</a>
+  </div>
+
+  <header class="card hero">
+    <h1>Refer <em>&amp;</em> Earn</h1>
+    <p class="lede">Invite friends to Fujin Labs. Every friend who joins with your code takes you closer to cash and gifts.</p>
+    <div class="chips">
+      <div class="chip"><span class="ico" data-icon="money"></span>Cash rewards</div>
+      <div class="chip"><span class="ico" data-icon="gift"></span>Gifts</div>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden>Demo mode: entries are saved only in this browser. Set your Web app URL in config.js to store them in your Google Sheet.</div>
+
+  <!-- Shown when this device has no saved sign-up -->
+  <section class="card" id="gate" hidden aria-labelledby="gateTitle">
+    <h2 id="gateTitle">Get your referral code</h2>
+    <p class="sub">Join first, then your personal code and link appear here.</p>
+    <div class="row" style="margin-top:16px"><a class="btn primary" href="index.html">Fill the join form</a></div>
+    <form class="stack" id="lookupForm" novalidate style="margin-top:20px">
+      <label for="lookupEmail">Already joined? Enter your email<input id="lookupEmail" type="email" inputmode="email" autocomplete="email"></label>
+      <p class="hint" id="lookupErr"></p>
+      <button type="submit" class="soft">Show my code</button>
+    </form>
+  </section>
+
+  <!-- Shown for a joined visitor -->
+  <section class="card" id="mine" hidden aria-live="polite">
+    <div class="success">
+      <span class="ico" data-icon="check"></span>
+      <div><h2 id="mineTitle">You are in!</h2><p class="sub" style="margin:2px 0 0">Share your code and start earning.</p></div>
+    </div>
+    <div class="codebox">
+      <span>Your referral code</span>
+      <div class="code" id="myCode"></div>
+      <p class="link" id="myLink"></p>
+    </div>
+    <div class="actions">
+      <button class="wa big" id="shareWa" type="button">Share on WhatsApp</button>
+      <button class="soft" id="copyCode" type="button">Copy code</button>
+      <button class="soft" id="copyLink" type="button">Copy link</button>
+    </div>
+    <div class="meter">
+      <div class="stats">
+        <div class="stat"><b id="count">0</b><span>Friends joined</span></div>
+        <div class="stat alert"><b id="nextNeed">-</b><span id="nextLabel">To next reward</span></div>
+      </div>
+      <div class="bar" aria-hidden="true"><i id="barFill" style="width:0"></i></div>
+      <p class="hint" id="nextMsg"></p>
+      <div id="statusRow" hidden>Reward status: <span class="badge" id="statusBadge"></span></div>
+      <div class="row"><button class="soft" id="refresh" type="button">Refresh my count</button><button class="soft" id="notMe" type="button">Not you?</button></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="ladderTitle">
+    <h2 id="ladderTitle">What you can win</h2>
+    <p class="sub">Rewards unlock as your referral count grows.</p>
+    <div class="ladder" id="ladder"></div>
+  </section>
+
+  <footer>Rewards are confirmed by our team before they are sent.</footer>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+let TIERS = DEFAULT_TIERS, user = getUser(), current = {count:0, status:"None"};
+
+/* The invite link opens the join form first, with the code attached. */
+function inviteLink(code){
+  const u = new URL("index.html", location.href);
+  return u.origin + u.pathname + "?ref=" + code;
+}
+
+function renderLadder(){
+  const box = $("ladder"); box.textContent = "";
+  TIERS.forEach(t => {
+    const row = document.createElement("div"); row.className = "tier" + (current.count >= t.need ? " done" : "");
+    const ico = document.createElement("span"); ico.className = "ico"; ico.innerHTML = ICONS[t.type === "Gift" ? "gift" : "money"];
+    const txt = document.createElement("div");
+    const need = document.createElement("div"); need.className = "need"; need.textContent = t.need + (t.need === 1 ? " friend" : " friends");
+    const what = document.createElement("div"); what.className = "what"; what.textContent = t.reward;
+    txt.append(need, what);
+    if(t.details){ const d = document.createElement("div"); d.className = "det"; d.textContent = t.details; txt.append(d); }
+    const tick = document.createElement("span"); tick.className = "tick"; tick.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+    row.append(ico, txt, tick); box.append(row);
+  });
+}
+
+function renderProgress(){
+  $("count").textContent = current.count;
+  const next = TIERS.find(t => t.need > current.count);
+  if(next){
+    const left = next.need - current.count;
+    $("barFill").style.width = Math.max(6, Math.min(100, current.count / next.need * 100)) + "%";
+    $("nextNeed").textContent = left; $("nextLabel").textContent = left === 1 ? "Friend to next reward" : "Friends to next reward";
+    $("nextMsg").textContent = left + (left === 1 ? " more friend" : " more friends") + " to unlock " + next.reward + ".";
+  } else if(TIERS.length){
+    $("barFill").style.width = "100%"; $("nextMsg").textContent = "You unlocked every reward. Thank you!";
+    $("nextNeed").textContent = "Done"; $("nextLabel").textContent = "All rewards unlocked";
+  } else { $("barFill").style.width = "6%"; $("nextMsg").textContent = ""; $("nextNeed").textContent = "-"; }
+  const show = current.status && current.status !== "None";
+  $("statusRow").hidden = !show; if(show) $("statusBadge").textContent = current.status;
+  renderLadder();
+}
+
+function showMine(res){
+  current = {count:res.count || 0, status:res.status || "None"};
+  $("gate").hidden = true; $("mine").hidden = false;
+  $("myCode").textContent = res.code;
+  $("myLink").textContent = inviteLink(res.code);
+  renderProgress();
+}
+function showGate(){ $("mine").hidden = true; $("gate").hidden = false; current = {count:0, status:"None"}; renderProgress(); }
+
+async function loadUser(){
+  if(!user){ showGate(); return; }
+  try{
+    const res = await api.stats(user.email);
+    if(res){ user.code = res.code; setUser(user); showMine(res); }
+    else { clearUser(); user = null; showGate(); }
+  }catch(e){
+    /* Offline or Sheet slow: still show the code we saved on this device. */
+    showMine({code:user.code, count:0, status:"None"});
+  }
+}
+
+$("lookupForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const err = $("lookupErr"), email = $("lookupEmail").value.trim().toLowerCase();
+  err.className = "hint"; err.textContent = "";
+  if(!EMAIL_RE.test(email)) return err.textContent = "Enter the email you signed up with.";
+  try{
+    const res = await api.stats(email);
+    if(!res){ err.className = "hint bad"; err.textContent = "No signup found for that email. Fill the join form first."; return; }
+    user = {email, code:res.code}; setUser(user); showMine(res);
+  }catch(ex){ err.className = "hint bad"; err.textContent = "Could not check right now. Try again shortly."; }
+});
+
+$("refresh").addEventListener("click", async () => {
+  if(!user) return;
+  try{ const res = await api.stats(user.email); if(res) showMine(res); }catch(e){}
+});
+$("notMe").addEventListener("click", () => { clearUser(); user = null; showGate(); });
+$("copyCode").addEventListener("click", e => copyText($("myCode").textContent, e.target));
+$("copyLink").addEventListener("click", e => copyText($("myLink").textContent, e.target));
+$("shareWa").addEventListener("click", () => {
+  const msg = "Join Fujin Labs with my code " + $("myCode").textContent + " and we both move closer to rewards: " + $("myLink").textContent;
+  window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank", "noopener");
+});
+
+(async function boot(){
+  renderLadder();
+  try{ const c = await api.config(); if(c && c.tiers && c.tiers.length) TIERS = c.tiers; }catch(e){}
+  await loadUser();
+})();
+</script>
+</body>
+</html>

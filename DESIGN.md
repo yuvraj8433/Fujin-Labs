@@ -48,7 +48,13 @@ One look for every page: clean light surfaces, white cards, warm orange accents.
 ## Files
 | File | Purpose |
 |---|---|
-| `index.html` | Public Refer & Earn page and sign-up form |
+| `index.html` | Page 1: sign-up form. Invite links (`?ref=CODE`) open here first, with the code locked |
+| `refer.html` | Page 2: Refer & Earn (rewards, your code, share, referral count). The form sends people here |
 | `admin.html` | Password-protected admin console (not linked publicly) |
 | `styles.css` | Shared design system, upload with the pages |
+| `config.js` | The one place for the Apps Script Web app URL (empty = demo mode) |
+| `app.js` | Shared public-page code: backend calls, demo mode, saved visitor |
 | `Code.gs` | Google Apps Script backend, pasted into the Sheet |
+
+## Page flow
+Invite link `index.html?ref=CODE` → form (code locked) → submit → `refer.html` shows the new person's own code. The visitor's email and code are kept in this device's `localStorage` (`fujin_user`), never in the URL. Invite links always point to `index.html`, so every new person fills the form first.
