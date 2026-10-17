@@ -139,6 +139,7 @@
             </div>
             <div class="card stack">
               <h2>Questions</h2>
+              <p class="msg" style="margin-top:-6px">Each question becomes its own column in this form's tab in your Google Sheet. Saving adds new columns and renames changed ones. A deleted question keeps its column, marked "(removed)", so no data is lost.</p>
               <div class="qcard locked"><strong>Full name</strong><span class="msg">Always asked on every form. It identifies the person for referrals.</span></div>
               <div class="qcard locked"><strong>Email</strong><span class="msg">Always asked on every form. One email is one person and one referral code.</span></div>
               <div id="fieldList" class="stack"></div>
@@ -212,7 +213,7 @@ if(pwGet() && CONFIG.SHEET_API_URL) enter(pwGet(), true);
 /* ---- Data ---- */
 async function load(){
   const d = await call("a_list", {});
-  DATA = {rows:d.rows || [], tiers:d.tiers || [], forms:d.forms || [], responses:d.responses || [], statuses:d.statuses || DATA.statuses};
+  DATA = {rows:d.rows || [], tiers:d.tiers || [], forms:d.forms || [], responses:d.responses || [], statuses:d.statuses || DATA.statuses, sheetUrl:d.sheetUrl || ""};
   fillFilters(); renderOverview(); renderPeople(); renderFormsList(); renderTiers();
 }
 $("reload").addEventListener("click", async e => { e.target.disabled = true; try{ await load(); say("Refreshed."); }catch(x){ say(x.message, true); } e.target.disabled = false; });
@@ -320,6 +321,7 @@ function publicLink(id){
   const u = new URL("index.html", location.href);
   return u.origin + u.pathname + (id === "default" ? "" : "?form=" + id);
 }
+const sheetLink = gid => DATA.sheetUrl.split("#")[0] + "#gid=" + gid;
 function blankField(type){
   return {id:"q" + Math.random().toString(36).slice(2, 8), type:type || "short", label:"", help:"", required:false, options:type && FormKit.CHOICE.includes(type) ? ["Option 1", "Option 2"] : []};
 }
@@ -341,6 +343,7 @@ function renderFormsList(){
       catch(e){ say(e.message, true); dup.disabled = false; }
     });
     const open = h("a", {class:"btn", href:link, target:"_blank", rel:"noopener"}, "Open");
+    const sheet = f.gid && DATA.sheetUrl ? h("a", {class:"btn", href:sheetLink(f.gid), target:"_blank", rel:"noopener"}, "Open in Sheets") : null;
     const del = h("button", {class:"danger", type:"button"}, "Delete"); let armed = false;
     del.addEventListener("click", async () => {
       if(!armed){ armed = true; del.classList.add("sure"); del.textContent = "Tap again to delete"; setTimeout(() => { armed = false; del.classList.remove("sure"); del.textContent = "Delete"; }, 4000); return; }
@@ -351,7 +354,7 @@ function renderFormsList(){
       h("div", {}, h("h3", {}, f.title), h("div", {class:"pills", style:"margin-top:6px"},
         h("span", {class:"pill " + (f.status === "Published" ? "paid" : "")}, f.status), h("span", {class:"pill"}, f.fields.length + " questions + name and email"), h("span", {class:"pill"}, f.responses + " responses"))),
       h("p", {class:"link"}, link),
-      h("div", {class:"row"}, edit, resp, copy, dup, open, f.id === "default" ? null : del)));
+      h("div", {class:"row"}, edit, resp, copy, dup, open, sheet, f.id === "default" ? null : del)));
   });
 }
 $("newForm").addEventListener("click", () => openEditor({id:"", title:"Untitled form", description:"", status:"Draft", settings:{submitLabel:"Submit", referral:true, after:"refer", message:""}, fields:[{...blankField("short"), label:"Your question"}]}));
@@ -432,7 +435,7 @@ $("saveForm").addEventListener("click", async e => {
     const out = await call("a_form_save", {form:draft});
     draft.id = out.form.id; draft.fields = out.form.fields; dirty = false;
     await load(); renderFieldList();
-    m.className = "msg ok"; m.textContent = "Saved. " + (draft.status === "Published" ? "Live at " + publicLink(draft.id) : "It is a draft, so the link is closed.");
+    m.className = "msg ok"; m.textContent = "Saved. Sheet tab “" + out.tabName + "” now has " + (out.columns + 5) + " columns. " + (draft.status === "Published" ? "Live at " + publicLink(draft.id) : "It is a draft, so the link is closed.");
   }catch(x){ m.className = "msg bad"; m.textContent = x.message; }
   e.target.disabled = false;
 });
