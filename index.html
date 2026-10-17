@@ -12,8 +12,7 @@
 </head>
 <body>
 <main>
-  <!-- Page 1 of 2: a form made in the admin page. index.html is the main form; index.html?form=ID opens any other form.
-       Anyone arriving from an invite link (?ref=CODE) lands here first. -->
+  <!-- Page 1 of 2: the sign-up form, built in the admin page. Anyone arriving from an invite link (?ref=CODE) lands here first. -->
   <div class="card top">
     <div class="brand"><i></i>Fujin Labs</div>
     <a class="btn" href="refer.html">Refer &amp; Earn</a>
@@ -75,7 +74,7 @@
 <script src="app.js"></script>
 <script>
 const NEXT_PAGE = "refer.html";
-const formId = new URLSearchParams(location.search).get("form") || "default";
+const formId = "default";   /* one form for everyone; edit it in the admin page */
 let FORM = null, refLocked = false;
 
 /* ---- Load the form from the Sheet ---- */

@@ -27,7 +27,7 @@
   ol.lb .rk{font:800 16px var(--display);width:26px;color:var(--orange-deep)}
   ol.lb .nm{flex:1;min-width:0;overflow-wrap:anywhere;font-weight:700}
   ol.lb .ct{font:800 20px var(--display);font-variant-numeric:tabular-nums}
-  .filters{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px}
+  .filters{display:grid;grid-template-columns:2fr 1fr;gap:12px}
   @media(max-width:640px){.filters{grid-template-columns:1fr}}
   .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr));gap:16px;margin-top:18px}
   .person{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
@@ -37,13 +37,12 @@
   .edit{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:12px}
   .answers{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg)}
   .answers summary{cursor:pointer;font:700 14px var(--body);color:var(--orange-deep)}
-  .answers h4{margin:12px 0 4px;font:700 13px var(--body);color:var(--muted)}
+  .answers .meta{margin-top:10px}
   .tier-edit{display:grid;grid-template-columns:90px 1fr 110px auto;gap:10px;align-items:end;margin-top:12px}
   .tier-edit .full{grid-column:1/-1}
   @media(max-width:640px){.tier-edit{grid-template-columns:1fr 1fr;padding:12px;border-radius:14px;background:var(--well)}.tier-edit>*{grid-column:1/-1}}
 
-  /* forms tab */
-  .formcard .link{font-size:13px;color:var(--muted);overflow-wrap:anywhere;margin:0}
+  /* form tab */
   .editor{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start}
   @media(max-width:860px){.editor{grid-template-columns:1fr}}
   .sticky{position:sticky;top:64px}
@@ -69,7 +68,7 @@
 <main>
   <section id="login" class="card" aria-labelledby="loginTitle">
     <h1 id="loginTitle">Fujin Labs Admin</h1>
-    <p class="msg">Enter your admin password to manage forms, sign-ups, referrals and rewards.</p>
+    <p class="msg">Enter your admin password to manage your form, sign-ups, referrals and rewards.</p>
     <div id="noUrl" class="banner" hidden>Set your Web app URL in config.js first. Nothing can be loaded without it.</div>
     <form id="loginForm" class="stack">
       <label for="pw">Password<input id="pw" type="password" autocomplete="current-password"></label>
@@ -82,6 +81,7 @@
     <div class="top card">
       <div><div class="brand" style="margin-bottom:8px"><i></i>Fujin Labs Admin</div><span class="conn">Connected to Google Sheet</span></div>
       <div class="row">
+        <a class="btn primary" id="openSheet" href="#" target="_blank" rel="noopener">Open Google Sheet</a>
         <button class="soft" id="reload" type="button">Refresh</button>
         <button class="soft" id="exportCsv" type="button">Export CSV</button>
         <button class="soft" id="logout" type="button">Sign out</button>
@@ -90,7 +90,7 @@
     <div class="tabs" role="tablist" style="margin-top:14px">
       <button role="tab" aria-selected="true" data-tab="over">Overview</button>
       <button role="tab" aria-selected="false" data-tab="people">Sign-ups</button>
-      <button role="tab" aria-selected="false" data-tab="forms">Forms</button>
+      <button role="tab" aria-selected="false" data-tab="form">Form</button>
       <button role="tab" aria-selected="false" data-tab="rewards">Reward tiers</button>
     </div>
     <p class="msg" id="topMsg" role="status"></p>
@@ -99,7 +99,7 @@
       <div class="stats" id="stats"></div>
       <div class="grid2">
         <div class="card"><h2>Top referrers</h2><ol class="lb" id="leaders"></ol></div>
-        <div class="card"><h2>Responses by form</h2><div class="bars" id="interestBars"></div><h2 style="margin-top:24px">Last 7 days</h2><div class="bars" id="dayBars"></div></div>
+        <div class="card"><h2 id="breakTitle">Answers</h2><div class="bars" id="breakBars"></div><h2 style="margin-top:24px">Last 7 days</h2><div class="bars" id="dayBars"></div></div>
       </div>
     </section>
 
@@ -107,55 +107,48 @@
       <h2>All sign-ups <span class="pill" id="shown"></span></h2>
       <div class="filters">
         <label for="q">Search<input id="q" type="search" placeholder="Name, email, company, code"></label>
-        <label for="fForm">Form<select id="fForm"><option value="">All forms</option></select></label>
         <label for="fStatus">Reward<select id="fStatus"><option value="">All</option><option value="__ready">Ready to reward</option></select></label>
       </div>
       <div class="list" id="list"></div>
     </section>
 
-    <section id="p-forms" class="panel" hidden>
-      <div id="formsView" class="card">
-        <div class="top"><div><h2>Forms</h2><p class="sub">Build forms like Google Forms. Each one gets its own link.</p></div><button id="newForm" type="button">New form</button></div>
-        <div class="list" id="formsList"></div>
+    <section id="p-form" class="panel" hidden>
+      <div class="card top">
+        <div><h2>Your form</h2><p class="sub">One form for everyone. Each question is a column in the <strong>Signups</strong> tab of your Sheet.</p></div>
+        <div class="row" style="align-items:center"><span class="msg" id="saveMsg" role="status"></span><a class="btn" id="openForm" href="index.html" target="_blank" rel="noopener">Open form</a><button id="saveForm" type="button" class="big">Save form</button></div>
       </div>
-      <div id="editorView" hidden>
-        <div class="card top" style="margin-bottom:20px">
-          <button class="soft" id="backForms" type="button">Back to all forms</button>
-          <div class="row" style="align-items:center"><span class="msg" id="saveMsg" role="status"></span><button id="saveForm" type="button" class="big">Save form</button></div>
-        </div>
-        <div class="editor">
-          <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
-            <div class="card stack">
-              <h2>Form details</h2>
-              <label for="fTitle">Title<input id="fTitle" maxlength="120"></label>
-              <label for="fDesc">Description <small>(shown under the title)</small><textarea id="fDesc" maxlength="600"></textarea></label>
-              <div class="grid2">
-                <label for="fSubmit">Submit button text<input id="fSubmit" maxlength="40"></label>
-                <label for="fStatusSel">Status<select id="fStatusSel"><option>Published</option><option>Draft</option></select></label>
-              </div>
-              <label for="fAfter">After someone submits<select id="fAfter"><option value="refer">Go to the Refer &amp; Earn page</option><option value="message">Show a thank-you message</option></select></label>
-              <label for="fMsg" id="fMsgBox">Thank-you message<textarea id="fMsg" maxlength="500"></textarea></label>
-              <label class="tick" for="fRef"><input type="checkbox" id="fRef">Ask for a referral code on this form</label>
+      <div class="editor">
+        <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+          <div class="card stack">
+            <h2>Form details</h2>
+            <label for="fTitle">Title<input id="fTitle" maxlength="120"></label>
+            <label for="fDesc">Description <small>(shown under the title)</small><textarea id="fDesc" maxlength="600"></textarea></label>
+            <div class="grid2">
+              <label for="fSubmit">Submit button text<input id="fSubmit" maxlength="40"></label>
+              <label for="fStatusSel">Form status<select id="fStatusSel"><option value="Published">Open (accepting responses)</option><option value="Draft">Closed</option></select></label>
             </div>
-            <div class="card stack">
-              <h2>Questions</h2>
-              <p class="msg" style="margin-top:-6px">Each question becomes its own column in this form's tab in your Google Sheet. Saving adds new columns and renames changed ones. A deleted question keeps its column, marked "(removed)", so no data is lost.</p>
-              <div class="qcard locked"><strong>Full name</strong><span class="msg">Always asked on every form. It identifies the person for referrals.</span></div>
-              <div class="qcard locked"><strong>Email</strong><span class="msg">Always asked on every form. One email is one person and one referral code.</span></div>
-              <div id="fieldList" class="stack"></div>
-              <div class="row"><select id="addType" aria-label="Question type to add" style="width:auto;flex:1 1 180px"></select><button id="addField" type="button" class="soft">Add question</button></div>
-            </div>
+            <label for="fAfter">After someone submits<select id="fAfter"><option value="refer">Go to the Refer &amp; Earn page</option><option value="message">Show a thank-you message</option></select></label>
+            <label for="fMsg" id="fMsgBox">Thank-you message<textarea id="fMsg" maxlength="500"></textarea></label>
+            <label class="tick" for="fRef"><input type="checkbox" id="fRef">Ask for a referral code on this form</label>
           </div>
-          <div class="card pv sticky" aria-label="Form preview">
-            <span class="pv-note">Live preview</span>
-            <div><h2 id="pvTitle"></h2><p class="sub" id="pvDesc"></p></div>
-            <div class="stack">
-              <label>Full name<input disabled placeholder="Full name"></label>
-              <label>Email<input disabled placeholder="Email"></label>
-              <div id="pvQuestions" class="stack"></div>
-              <label id="pvRef">Referral code <small>(if someone invited you)</small><input disabled placeholder="FUJIN-XXXX"></label>
-              <button type="button" id="pvSubmit" disabled class="big"></button>
-            </div>
+          <div class="card stack">
+            <h2>Questions</h2>
+            <p class="msg" style="margin-top:-6px">Saving adds a column for each new question, renames the column when you rename a question, and keeps the column of a deleted question (marked "removed") so no data is lost.</p>
+            <div class="qcard locked"><strong>Full name</strong><span class="msg">Always asked. It identifies the person for referrals.</span></div>
+            <div class="qcard locked"><strong>Email</strong><span class="msg">Always asked. One email is one person and one referral code.</span></div>
+            <div id="fieldList" class="stack"></div>
+            <div class="row"><select id="addType" aria-label="Question type to add" style="width:auto;flex:1 1 180px"></select><button id="addField" type="button" class="soft">Add question</button></div>
+          </div>
+        </div>
+        <div class="card pv sticky" aria-label="Form preview">
+          <span class="pv-note">Live preview</span>
+          <div><h2 id="pvTitle"></h2><p class="sub" id="pvDesc"></p></div>
+          <div class="stack">
+            <label>Full name<input disabled placeholder="Full name"></label>
+            <label>Email<input disabled placeholder="Email"></label>
+            <div id="pvQuestions" class="stack"></div>
+            <label id="pvRef">Referral code <small>(if someone invited you)</small><input disabled placeholder="FUJIN-XXXX"></label>
+            <button type="button" id="pvSubmit" disabled class="big"></button>
           </div>
         </div>
       </div>
@@ -175,11 +168,10 @@
 <script src="formkit.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-let PASSWORD = "", DATA = {rows:[], tiers:[], forms:[], responses:[], statuses:["None","Pending","Approved","Paid / Sent"]};
+let PASSWORD = "", DATA = {rows:[], tiers:[], form:null, sheetUrl:"", statuses:["None","Pending","Approved","Paid / Sent"]};
 
 function h(tag, props, ...kids){ return FormKit.el(tag, props, ...kids); }
 const fmtDate = s => { const d = new Date(s); return isNaN(d) ? "" : d.toLocaleDateString(undefined, {day:"numeric", month:"short", year:"numeric"}); };
-const formTitle = id => { const f = DATA.forms.find(x => x.id === id); return f ? f.title : "Deleted form"; };
 const shown = v => Array.isArray(v) ? v.join(", ") : v === true ? "Yes" : String(v);
 function say(msg, bad){ const t = $("topMsg"); t.className = "msg" + (bad ? " bad" : " ok"); t.textContent = msg; if(msg) setTimeout(() => { if(t.textContent === msg) t.textContent = ""; }, 4000); }
 
@@ -213,8 +205,10 @@ if(pwGet() && CONFIG.SHEET_API_URL) enter(pwGet(), true);
 /* ---- Data ---- */
 async function load(){
   const d = await call("a_list", {});
-  DATA = {rows:d.rows || [], tiers:d.tiers || [], forms:d.forms || [], responses:d.responses || [], statuses:d.statuses || DATA.statuses, sheetUrl:d.sheetUrl || ""};
-  fillFilters(); renderOverview(); renderPeople(); renderFormsList(); renderTiers();
+  DATA = {rows:d.rows || [], tiers:d.tiers || [], form:d.form, sheetUrl:d.sheetUrl || "", statuses:d.statuses || DATA.statuses};
+  $("openSheet").href = DATA.sheetUrl || "#";
+  renderOverview(); renderPeople(); renderTiers();
+  if(!dirty) openEditor(DATA.form);
 }
 $("reload").addEventListener("click", async e => { e.target.disabled = true; try{ await load(); say("Refreshed."); }catch(x){ say(x.message, true); } e.target.disabled = false; });
 
@@ -227,8 +221,8 @@ function renderOverview(){
   const ready = rows.filter(needsReward).length;
   const stat = (n, label, alert) => h("div", {class:"stat" + (alert ? " alert" : "")}, h("b", {}, n), h("span", {}, label));
   const box = $("stats"); box.textContent = "";
-  box.append(stat(total, "People signed up"), stat(DATA.responses.length, "Form responses"), stat(viaRef, "Joined via referral"),
-    stat(total ? Math.round(viaRef/total*100) + "%" : "0%", "Referral rate"), stat(ready, "Ready to reward", ready > 0), stat(DATA.forms.length, "Forms"));
+  box.append(stat(total, "People signed up"), stat(viaRef, "Joined via referral"),
+    stat(total ? Math.round(viaRef/total*100) + "%" : "0%", "Referral rate"), stat(ready, "Ready to reward", ready > 0), stat(DATA.form.fields.length, "Form questions"));
 
   const lb = $("leaders"); lb.textContent = "";
   const top = rows.filter(r => r.count > 0).sort((a,b) => b.count - a.count).slice(0, 8);
@@ -237,35 +231,31 @@ function renderOverview(){
 
   const bars = (el, entries) => { el.textContent = ""; const max = Math.max(1, ...entries.map(e => e[1]));
     entries.forEach(([k, v]) => el.append(h("div", {class:"b"}, h("span", {}, k), h("div", {class:"tr"}, h("i", {style:"width:" + Math.max(2, v/max*100) + "%"})), h("span", {}, v)))); };
-  const byForm = {}; DATA.responses.forEach(r => { const k = formTitle(r.formId); byForm[k] = (byForm[k] || 0) + 1; });
-  bars($("interestBars"), Object.entries(byForm).sort((a,b) => b[1] - a[1]).slice(0, 8));
+  /* Breakdown of the first choice question (for example "What are you interested in?"). */
+  const q = DATA.form.fields.find(f => ["dropdown","radio","checkbox"].includes(f.type));
+  $("breakTitle").textContent = q ? q.label : "Answers";
+  const counts = {};
+  if(q) rows.forEach(r => { const a = r.answers[q.id]; if(!a) return; String(shown(a.v)).split(", ").forEach(v => counts[v] = (counts[v] || 0) + 1); });
+  bars($("breakBars"), Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 8));
+  if(!Object.keys(counts).length) $("breakBars").append(h("p", {class:"msg"}, q ? "No answers yet." : "Add a dropdown or multiple choice question to see a breakdown here."));
   const days = [];
   for(let i = 6; i >= 0; i--){ const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - i); days.push(d); }
   bars($("dayBars"), days.map(d => [d.toLocaleDateString(undefined, {weekday:"short", day:"numeric"}),
-    DATA.responses.filter(r => { const x = new Date(r.ts); return x >= d && x < new Date(d.getTime() + 864e5); }).length]));
+    rows.filter(r => { const x = new Date(r.ts); return x >= d && x < new Date(d.getTime() + 864e5); }).length]));
 }
 
 /* ---- Sign-ups ---- */
-function fillFilters(){
-  const sel = $("fForm"), keep = sel.value; sel.textContent = ""; sel.append(h("option", {value:""}, "All forms"));
-  DATA.forms.forEach(f => sel.append(h("option", {value:f.id}, f.title))); sel.value = keep;
-  const st = $("fStatus"), k2 = st.value; st.textContent = ""; st.append(h("option", {value:""}, "All"), h("option", {value:"__ready"}, "Ready to reward"));
-  DATA.statuses.forEach(s => st.append(h("option", {value:s}, s))); st.value = k2;
+function fillStatusFilter(){
+  const st = $("fStatus"), keep = st.value; st.textContent = ""; st.append(h("option", {value:""}, "All"), h("option", {value:"__ready"}, "Ready to reward"));
+  DATA.statuses.forEach(s => st.append(h("option", {value:s}, s))); st.value = keep;
 }
 
 function answersBlock(r){
-  const mine = DATA.responses.filter(x => String(x.email).toLowerCase() === String(r.email).toLowerCase()).sort((a,b) => new Date(b.ts) - new Date(a.ts));
-  if(!mine.length) return null;
-  const box = h("details", {class:"answers"}, h("summary", {}, "Form answers (" + mine.length + ")"));
-  mine.forEach(x => {
-    box.append(h("h4", {}, formTitle(x.formId) + " · " + fmtDate(x.ts)));
-    const dl = h("dl", {class:"meta"});
-    const keys = Object.keys(x.answers || {});
-    if(!keys.length) dl.append(h("dt", {}, "No extra answers"), h("dd", {}, ""));
-    keys.forEach(k => dl.append(h("dt", {}, x.answers[k].l), h("dd", {}, shown(x.answers[k].v))));
-    box.append(dl);
-  });
-  return box;
+  const keys = Object.keys(r.answers || {});
+  if(!keys.length) return null;
+  const dl = h("dl", {class:"meta"});
+  keys.forEach(k => dl.append(h("dt", {}, r.answers[k].l), h("dd", {}, shown(r.answers[k].v))));
+  return h("details", {class:"answers"}, h("summary", {}, "Form answers (" + keys.length + ")"), dl);
 }
 
 function personCard(r){
@@ -287,7 +277,7 @@ function personCard(r){
     catch(e){ msg.className = "msg bad"; msg.textContent = e.message; }
     save.disabled = false;
   });
-  const dl = [["Email", r.email], ["Phone", r.phone || "-"], ["Company", r.company || "-"], ["Joined", fmtDate(r.ts) + " via " + formTitle(r.formId)], ["Referred by", r.ref ? (r.refName || "Unknown") + " (" + r.ref + ")" : "Nobody"]];
+  const dl = [["Email", r.email], ["Phone", r.phone || "-"], ["Company", r.company || "-"], ["Joined", fmtDate(r.ts)], ["Referred by", r.ref ? (r.refName || "Unknown") + " (" + r.ref + ")" : "Nobody"]];
   return h("article", {class:"person"},
     h("div", {}, h("h3", {}, r.name), h("div", {class:"pills", style:"margin-top:6px"},
       h("span", {class:"pill"}, r.code), h("span", {class:"pill"}, r.count + (r.count === 1 ? " referral" : " referrals")),
@@ -299,14 +289,14 @@ function personCard(r){
 }
 
 function filteredRows(){
-  const q = $("q").value.trim().toLowerCase(), ff = $("fForm").value, fs = $("fStatus").value;
-  const inForm = ff ? new Set(DATA.responses.filter(x => x.formId === ff).map(x => String(x.email).toLowerCase())) : null;
+  const q = $("q").value.trim().toLowerCase(), fs = $("fStatus").value;
   return DATA.rows.filter(r => (!q || [r.name, r.email, r.company, r.code, r.phone].join(" ").toLowerCase().includes(q))
-    && (!inForm || inForm.has(String(r.email).toLowerCase())) && (!fs || (fs === "__ready" ? needsReward(r) : r.status === fs)))
+    && (!fs || (fs === "__ready" ? needsReward(r) : r.status === fs)))
     .sort((a,b) => new Date(b.ts) - new Date(a.ts));
 }
 
 function renderPeople(){
+  fillStatusFilter();
   const rows = filteredRows();
   $("shown").textContent = rows.length + " of " + DATA.rows.length;
   const list = $("list"); list.textContent = "";
@@ -314,61 +304,20 @@ function renderPeople(){
   rows.slice(0, 200).forEach(r => list.append(personCard(r)));
   if(rows.length > 200) list.append(h("p", {class:"msg"}, "Showing the newest 200. Narrow the search to see more."));
 }
-["input","change"].forEach(ev => ["q","fForm","fStatus"].forEach(id => $(id).addEventListener(ev, renderPeople)));
+["input","change"].forEach(ev => ["q","fStatus"].forEach(id => $(id).addEventListener(ev, renderPeople)));
 
-/* ---- Forms: list ---- */
-function publicLink(id){
-  const u = new URL("index.html", location.href);
-  return u.origin + u.pathname + (id === "default" ? "" : "?form=" + id);
-}
-const sheetLink = gid => DATA.sheetUrl.split("#")[0] + "#gid=" + gid;
+/* ---- Form editor ---- */
+let draft = null, dirty = false;
 function blankField(type){
   return {id:"q" + Math.random().toString(36).slice(2, 8), type:type || "short", label:"", help:"", required:false, options:type && FormKit.CHOICE.includes(type) ? ["Option 1", "Option 2"] : []};
 }
-
-function renderFormsList(){
-  const list = $("formsList"); list.textContent = "";
-  if(!DATA.forms.length) list.append(h("p", {class:"msg"}, "No forms yet."));
-  DATA.forms.forEach(f => {
-    const link = publicLink(f.id);
-    const copy = h("button", {class:"soft", type:"button"}, "Copy link");
-    copy.addEventListener("click", async () => { try{ await navigator.clipboard.writeText(link); copy.textContent = "Copied!"; }catch(e){ copy.textContent = "Select the link"; } setTimeout(() => copy.textContent = "Copy link", 1500); });
-    const edit = h("button", {type:"button"}, "Edit"); edit.addEventListener("click", () => openEditor(f));
-    const resp = h("button", {class:"soft", type:"button"}, "Responses (" + f.responses + ")");
-    resp.addEventListener("click", () => { $("fForm").value = f.id; goTab("people"); renderPeople(); });
-    const dup = h("button", {class:"soft", type:"button"}, "Duplicate");
-    dup.addEventListener("click", async () => {
-      dup.disabled = true;
-      try{ await call("a_form_save", {form:{...f, id:"", title:"Copy of " + f.title, status:"Draft"}}); await load(); say("Duplicated as a draft."); }
-      catch(e){ say(e.message, true); dup.disabled = false; }
-    });
-    const open = h("a", {class:"btn", href:link, target:"_blank", rel:"noopener"}, "Open");
-    const sheet = f.gid && DATA.sheetUrl ? h("a", {class:"btn", href:sheetLink(f.gid), target:"_blank", rel:"noopener"}, "Open in Sheets") : null;
-    const del = h("button", {class:"danger", type:"button"}, "Delete"); let armed = false;
-    del.addEventListener("click", async () => {
-      if(!armed){ armed = true; del.classList.add("sure"); del.textContent = "Tap again to delete"; setTimeout(() => { armed = false; del.classList.remove("sure"); del.textContent = "Delete"; }, 4000); return; }
-      del.disabled = true;
-      try{ await call("a_form_delete", {id:f.id}); await load(); say("Form deleted. Past responses are kept."); }catch(e){ say(e.message, true); del.disabled = false; }
-    });
-    list.append(h("article", {class:"person formcard"},
-      h("div", {}, h("h3", {}, f.title), h("div", {class:"pills", style:"margin-top:6px"},
-        h("span", {class:"pill " + (f.status === "Published" ? "paid" : "")}, f.status), h("span", {class:"pill"}, f.fields.length + " questions + name and email"), h("span", {class:"pill"}, f.responses + " responses"))),
-      h("p", {class:"link"}, link),
-      h("div", {class:"row"}, edit, resp, copy, dup, open, sheet, f.id === "default" ? null : del)));
-  });
-}
-$("newForm").addEventListener("click", () => openEditor({id:"", title:"Untitled form", description:"", status:"Draft", settings:{submitLabel:"Submit", referral:true, after:"refer", message:""}, fields:[{...blankField("short"), label:"Your question"}]}));
-
-/* ---- Forms: editor ---- */
-let draft = null, dirty = false, backArmed = false;
 function openEditor(f){
   draft = JSON.parse(JSON.stringify(f)); draft.settings = {submitLabel:"Submit", referral:true, after:"refer", message:"", ...draft.settings};
-  dirty = false; backArmed = false; $("backForms").textContent = "Back to all forms"; $("saveMsg").textContent = "";
+  dirty = false; $("saveMsg").textContent = "";
   $("fTitle").value = draft.title; $("fDesc").value = draft.description; $("fSubmit").value = draft.settings.submitLabel;
-  $("fStatusSel").value = draft.status; $("fStatusSel").disabled = draft.id === "default";
+  $("fStatusSel").value = draft.status;
   $("fAfter").value = draft.settings.after; $("fMsg").value = draft.settings.message; $("fRef").checked = draft.settings.referral !== false;
-  $("formsView").hidden = true; $("editorView").hidden = false;
-  syncAfter(); renderFieldList(); renderPreview(); window.scrollTo({top:0, behavior:"smooth"});
+  syncAfter(); renderFieldList(); renderPreview();
 }
 function touch(){ dirty = true; $("saveMsg").className = "msg"; $("saveMsg").textContent = "Unsaved changes"; renderPreview(); }
 function syncAfter(){ $("fMsgBox").hidden = $("fAfter").value !== "message"; }
@@ -416,7 +365,7 @@ function renderFieldList(){
 }
 
 function renderPreview(){
-  $("pvTitle").textContent = draft.title || "Untitled form";
+  $("pvTitle").textContent = draft.title || "Join Fujin Labs";
   $("pvDesc").textContent = draft.description || ""; $("pvDesc").hidden = !draft.description;
   FormKit.render($("pvQuestions"), draft.fields.map(f => ({...f, label:f.label || "Untitled question"})), "pv_");
   $("pvQuestions").querySelectorAll("input,select,textarea").forEach(x => x.disabled = true);
@@ -424,18 +373,13 @@ function renderPreview(){
   $("pvSubmit").textContent = draft.settings.submitLabel || "Submit";
 }
 
-$("backForms").addEventListener("click", () => {
-  if(dirty && !backArmed){ backArmed = true; $("backForms").textContent = "Discard unsaved changes?"; setTimeout(() => { backArmed = false; $("backForms").textContent = "Back to all forms"; }, 4000); return; }
-  $("editorView").hidden = true; $("formsView").hidden = false; draft = null;
-});
 $("saveForm").addEventListener("click", async e => {
   const m = $("saveMsg"); m.className = "msg"; m.textContent = "Saving...";
   e.target.disabled = true;
   try{
     const out = await call("a_form_save", {form:draft});
-    draft.id = out.form.id; draft.fields = out.form.fields; dirty = false;
-    await load(); renderFieldList();
-    m.className = "msg ok"; m.textContent = "Saved. Sheet tab “" + out.tabName + "” now has " + (out.columns + 5) + " columns. " + (draft.status === "Published" ? "Live at " + publicLink(draft.id) : "It is a draft, so the link is closed.");
+    dirty = false; await load();
+    m.className = "msg ok"; m.textContent = "Saved. Your Signups sheet now has " + out.columns + " columns. " + (draft.status === "Published" ? "The form is live." : "The form is closed.");
   }catch(x){ m.className = "msg bad"; m.textContent = x.message; }
   e.target.disabled = false;
 });
@@ -472,38 +416,22 @@ $("saveTiers").addEventListener("click", async e => {
 /* ---- Tabs and CSV ---- */
 function goTab(name){
   document.querySelectorAll("[data-tab]").forEach(x => x.setAttribute("aria-selected", String(x.dataset.tab === name)));
-  ["over","people","forms","rewards"].forEach(t => $("p-" + t).hidden = t !== name);
+  ["over","people","form","rewards"].forEach(t => $("p-" + t).hidden = t !== name);
 }
 document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => goTab(b.dataset.tab)));
 
-function download(name, csv){
-  const url = URL.createObjectURL(new Blob(["﻿" + csv], {type:"text/csv;charset=utf-8"}));
-  const a = h("a", {href:url, download:name}); document.body.append(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-}
 const cell = v => { v = String(v == null ? "" : v); if(/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
-
 $("exportCsv").addEventListener("click", () => {
-  const ff = $("fForm").value, day = new Date().toISOString().slice(0,10);
-  const byEmail = {}; DATA.rows.forEach(r => byEmail[String(r.email).toLowerCase()] = r);
-  const core = [["Name","name"],["Email","email"],["Code","code"],["Referred by","ref"],["Referrals","count"],["Reward status","status"]];
-  if(ff){
-    /* One row per response to this form, one column per question. */
-    const form = DATA.forms.find(f => f.id === ff);
-    const cols = form ? form.fields.map(f => [f.id, f.label]) : [];
-    const mine = DATA.responses.filter(x => x.formId === ff);
-    mine.forEach(x => Object.keys(x.answers || {}).forEach(k => { if(!cols.some(c => c[0] === k)) cols.push([k, x.answers[k].l]); }));
-    const head = ["Submitted"].concat(core.map(c => c[0]), cols.map(c => c[1]));
-    const body = mine.map(x => {
-      const p = byEmail[String(x.email).toLowerCase()] || {};
-      return [x.ts].concat(core.map(c => c[1] === "name" ? (p.name || x.name) : c[1] === "email" ? x.email : p[c[1]]), cols.map(c => x.answers[c[0]] ? shown(x.answers[c[0]].v) : ""));
-    });
-    download("fujin-labs-" + (form ? form.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase() : ff) + "-" + day + ".csv", [head].concat(body).map(r => r.map(cell).join(",")).join("\r\n"));
-  } else {
-    const cols = [["Joined","ts"],["Name","name"],["Email","email"],["Phone","phone"],["Company","company"],["Code","code"],["Referred by","ref"],["Referrals","count"],["Reward status","status"],["Notes","notes"],["First form","formTitle"]];
-    const rows = DATA.rows.map(r => ({...r, formTitle:formTitle(r.formId)}));
-    download("fujin-labs-signups-" + day + ".csv", [cols.map(c => c[0])].concat(rows.map(r => cols.map(c => r[c[1]]))).map(r => r.map(cell).join(",")).join("\r\n"));
-  }
+  /* One row per person: the usual columns, then one column per form question (including questions you removed). */
+  const core = [["Joined","ts"],["Name","name"],["Email","email"],["Code","code"],["Referred by","ref"],["Referrals","count"],["Reward status","status"],["Notes","notes"]];
+  const qs = DATA.form.fields.map(f => [f.id, f.label]);
+  DATA.rows.forEach(r => Object.keys(r.answers).forEach(k => { if(!qs.some(q => q[0] === k)) qs.push([k, r.answers[k].l + " (removed)"]); }));
+  const head = core.map(c => c[0]).concat(qs.map(q => q[1]));
+  const body = DATA.rows.map(r => core.map(c => r[c[1]]).concat(qs.map(q => r.answers[q[0]] ? shown(r.answers[q[0]].v) : "")));
+  const csv = [head].concat(body).map(r => r.map(cell).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob(["﻿" + csv], {type:"text/csv;charset=utf-8"}));
+  const a = h("a", {href:url, download:"fujin-labs-signups-" + new Date().toISOString().slice(0,10) + ".csv"}); document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 });
 </script>
 </body>

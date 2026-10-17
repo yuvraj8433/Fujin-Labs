@@ -48,7 +48,7 @@ One look for every page: clean light surfaces, white cards, warm orange accents.
 ## Files
 | File | Purpose |
 |---|---|
-| `index.html` | Page 1: sign-up form. Invite links (`?ref=CODE`) open here first, with the code locked |
+| `index.html` | Page 1: the sign-up form. Invite links (`?ref=CODE`) open here first, with the code locked |
 | `refer.html` | Page 2: Refer & Earn (rewards, your code, share, referral count). The form sends people here |
 | `admin.html` | Password-protected admin console (not linked publicly) |
 | `styles.css` | Shared design system, upload with the pages |
@@ -57,10 +57,15 @@ One look for every page: clean light surfaces, white cards, warm orange accents.
 | `formkit.js` | Draws a form from its question list and reads the answers. Used by `index.html` and by the admin live preview |
 | `Code.gs` | Google Apps Script backend, pasted into the Sheet |
 
-## Forms
-Forms are data, not code. The admin Forms tab creates them and `Code.gs` stores them in the `Forms` tab of the Sheet. `index.html` is the form with id `default`; `index.html?form=ID` opens any other published form. Every form always asks Name and Email (they identify the person for referrals); everything else is a question the admin adds. Question types: short, long, email, phone, number, date, dropdown, radio, checkbox, consent. Add a new type in three places: `FormKit.TYPES` and `build()` in `formkit.js`, plus `FIELD_TYPES` and `validateAnswers_` in `Code.gs`. The server validates every submission against the saved form, so never rely on browser checks alone.
+## The form
+There is one form for everyone. The admin **Form** tab edits it, and `Code.gs` stores its definition in the `Forms` tab. `index.html` always shows it. Every submission is one row in the **Signups** tab of the Sheet, and every question is one column in that same tab, so all data lives in one place.
 
-Sheet tabs: `Signups` (one row per person, referral data), `Form - <title>` (one tab per form, one column per question, one row per submission; this is where answers live and the admin reads them from there), `Forms` (form definitions and which column belongs to which question), `Rewards`. `Responses` is an old archive, read once to copy answers into a new form tab. Saving a form syncs its tab: new question = new column at the end, renamed question = renamed header, deleted question = column kept and marked "(removed)". Questions are matched to columns by id, so the owner must not insert or reorder columns before the last question column (columns added to the right are safe).
+- Name and Email are always asked (they identify the person for referrals). Everything else is a question the admin adds. Types: short, long, email, phone, number, date, dropdown, radio, checkbox, consent.
+- Saving the form syncs the Signups headers: a new question gets a new column on the right, a renamed question renames its header, a deleted question keeps its column marked "(removed)" so no data is lost. Columns the owner adds to the right of the questions are pushed along, never overwritten. Questions with the ids `company`, `phone`, `interest` use the original columns D, E, F.
+- Someone who submits again with the same email keeps their original answers and referrer.
+- The server validates every submission against the saved form, so never rely on browser checks alone.
+- Add a new question type in `FormKit.TYPES` and `build()` in `formkit.js`, plus `FIELD_TYPES` and `validateAnswers_` in `Code.gs`.
+- Other tabs: `Forms` (form definition), `Rewards` (tiers). Old tabs from earlier versions (`Responses`, `Form - ...`) are left alone; their answers are copied into Signups once.
 
 ## Page flow
 Invite link `index.html?ref=CODE` → form (code locked) → submit → `refer.html` shows the new person's own code. The visitor's email and code are kept in this device's `localStorage` (`fujin_user`), never in the URL. Invite links always point to `index.html`, so every new person fills the form first.

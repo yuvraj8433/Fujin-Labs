@@ -1,18 +1,19 @@
-// Fujin Labs forms + referral backend (Google Apps Script).
+// Fujin Labs sign-up form + referral backend (Google Apps Script).
 // Paste into Extensions > Apps Script of your Google Sheet, then Deploy > Web app (Execute as: Me, Access: Anyone).
 // Admin password: Project Settings (gear icon) > Script properties > add  ADMIN_PASSWORD = <your password>
-// Tabs it creates: Signups (one row per person), "Form - <title>" (one tab per form, one column per question),
-// Forms (form definitions), Rewards (reward tiers). Responses is an old archive that is only read once to copy answers into the form tabs.
+//
+// Everything lives in ONE tab, "Signups": one row per person, one column per form question.
+// Other tabs: Forms (the form's definition), Rewards (reward tiers). Old tabs from earlier versions are left alone.
 
 const SHEET_NAME = 'Signups';
 const REWARDS_SHEET = 'Rewards';
 const FORMS_SHEET = 'Forms';
-const RESP_SHEET = 'Responses';
-const FORM_FIXED = ['Timestamp', 'Name', 'Email', 'My Code', 'Referred By'];   // first columns of every form tab; questions follow
-const HEADERS = ['Timestamp', 'Name', 'Email', 'Company', 'Phone', 'Interest', 'My Code', 'Referred By', 'Referral Count', 'Reward Status', 'Notes', 'Form ID'];
+const FORM_ID = 'default';
+const HEADERS = ['Timestamp', 'Name', 'Email', 'Company', 'Phone', 'Interest', 'My Code', 'Referred By', 'Referral Count', 'Reward Status', 'Notes'];
+const QSTART = HEADERS.length + 1;                       // column 12: the first extra question column
+const LEGACY = { company: 4, phone: 5, interest: 6 };    // questions with these ids use the original columns D, E, F
 const REWARD_HEADERS = ['Referrals Needed', 'Reward', 'Type', 'Details'];
 const FORM_HEADERS = ['ID', 'Title', 'Description', 'Fields', 'Settings', 'Status', 'Created', 'Updated', 'Sheet ID', 'Columns'];
-const RESP_HEADERS = ['Timestamp', 'Form ID', 'Name', 'Email', 'Code', 'Answers'];
 const STATUSES = ['None', 'Pending', 'Approved', 'Paid / Sent'];
 const FIELD_TYPES = ['short', 'long', 'email', 'phone', 'number', 'date', 'dropdown', 'radio', 'checkbox', 'consent'];
 const CHOICE_TYPES = ['dropdown', 'radio', 'checkbox'];
@@ -23,7 +24,7 @@ const DEFAULT_TIERS = [   // placeholders: change them in the admin page or the 
   [25, 'Rs 5,000 cash', 'Money', 'Sent to your UPI or bank account']
 ];
 const DEFAULT_FORM = {
-  id: 'default',
+  id: FORM_ID,
   title: 'Join Fujin Labs',
   description: 'Tell us a little about you. It takes about a minute, and you can start earning rewards right after.',
   status: 'Published',
@@ -52,9 +53,8 @@ function makeSheet_(name, headers) {
 
 function getSheet_() {
   const sh = makeSheet_(SHEET_NAME, HEADERS).sh;
-  if (!sh.getRange(1, HEADERS.length).getValue()) {            // older sheets: add the newest header
-    sh.getRange(1, HEADERS.length).setValue(HEADERS[HEADERS.length - 1]).setFontWeight('bold');
-  }
+  // An earlier version added a "Form ID" column here. It is no longer used, so remove it before questions take its place.
+  if (sh.getLastColumn() >= QSTART && sh.getRange(1, QSTART).getValue() === 'Form ID') sh.deleteColumn(QSTART);
   return sh;
 }
 
@@ -67,10 +67,10 @@ function getRewardsSheet_() {
 function getFormsSheet_() {
   const made = makeSheet_(FORMS_SHEET, FORM_HEADERS);
   const sh = made.sh;
-  [9, 10].forEach(c => {                                       // older sheets: add the newest headers
+  [9, 10].forEach(c => {
     if (!sh.getRange(1, c).getValue()) sh.getRange(1, c).setValue(FORM_HEADERS[c - 1]).setFontWeight('bold');
   });
-  if (sh.getLastRow() < 2) writeForm_(sh, DEFAULT_FORM, null);
+  if (!rows_(sh, FORM_HEADERS.length).some(r => String(r[0]) === FORM_ID)) writeForm_(sh, DEFAULT_FORM, null);
   return sh;
 }
 
@@ -87,119 +87,23 @@ function tiers_() {
     .sort((a, b) => a.need - b.need);
 }
 
-// ---------- forms ----------
+// ---------- the one form ----------
 function parse_(s, fallback) { try { return JSON.parse(s); } catch (e) { return fallback; } }
+function str_(v, max) { return String(v == null ? '' : v).trim().slice(0, max); }
 
-// Full form including where its answers live (_row, sheetId, cols). Never send these to the public page.
-function readForms_() {
-  return rows_(getFormsSheet_(), FORM_HEADERS.length).map((r, i) => ({
-    id: String(r[0]), title: String(r[1]), description: String(r[2]),
-    fields: parse_(r[3], []), settings: parse_(r[4], {}), status: String(r[5]) === 'Draft' ? 'Draft' : 'Published',
-    _row: i + 2, sheetId: r[8] === '' ? '' : String(r[8]), cols: parse_(r[9], [])
-  }));
+// The form plus where each question lives. cols = ids of the question columns that start at column 12 (null = not set up yet).
+function readForm_() {
+  const r = rows_(getFormsSheet_(), FORM_HEADERS.length).map((x, i) => ({ x: x, row: i + 2 })).find(o => String(o.x[0]) === FORM_ID);
+  const m = parse_(r.x[9], null);
+  return {
+    id: FORM_ID, title: String(r.x[1]), description: String(r.x[2]),
+    fields: parse_(r.x[3], []), settings: parse_(r.x[4], {}), status: String(r.x[5]) === 'Draft' ? 'Draft' : 'Published',
+    _row: r.row, cols: m && !Array.isArray(m) && Array.isArray(m.cols) ? m.cols : null,
+    _oldSheetId: r.x[8] === '' ? '' : String(r.x[8]), _oldCols: Array.isArray(m) ? m : []
+  };
 }
-
-function getForm_(id) { return readForms_().find(f => f.id === id) || null; }
 
 const publicForm_ = f => ({ id: f.id, title: f.title, description: f.description, fields: f.fields, settings: f.settings, status: f.status });
-
-// ---------- one tab per form: every question is its own column ----------
-function findSheet_(id) {
-  if (id === '' || id == null) return null;
-  return SpreadsheetApp.getActiveSpreadsheet().getSheets().find(s => String(s.getSheetId()) === String(id)) || null;
-}
-
-function uniqueSheetName_(title) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const base = ('Form - ' + String(title).replace(/[\[\]*?:\/\\]/g, ' ').replace(/\s+/g, ' ').trim()).slice(0, 80);
-  let name = base, n = 2;
-  while (ss.getSheetByName(name)) name = base + ' (' + (n++) + ')';
-  return name;
-}
-
-// One row of answers, in the same order as the tab's columns.
-function responseValues_(form, cols, ts, name, email, code, ref, answers) {
-  return [ts, safe_(name), email, code, ref].concat(cols.map(id => {
-    const a = answers[id];
-    if (!a) return '';
-    const f = form.fields.find(q => q.id === id);
-    if (f && f.type === 'number') return Number(a.v);
-    const text = safe_(flat_(a));
-    return f && f.type === 'phone' && /^\d/.test(text) ? "'" + text : text;   // keep leading zeros
-  }));
-}
-
-// Makes the form's tab match its questions: creates the tab, adds a column for each new question, renames headers
-// when a question is renamed, and keeps (but marks) the column of a deleted question so no data is ever lost.
-function syncFormSheet_(form) {
-  let sh = findSheet_(form.sheetId);
-  const fresh = !sh;
-  if (!sh) sh = SpreadsheetApp.getActiveSpreadsheet().insertSheet(uniqueSheetName_(form.title));
-  const cols = fresh ? [] : form.cols.slice();
-  form.fields.forEach(f => { if (cols.indexOf(f.id) < 0) cols.push(f.id); });
-  const width = FORM_FIXED.length + cols.length;
-  const oldHead = fresh ? [] : sh.getRange(1, 1, 1, Math.max(width, sh.getLastColumn())).getValues()[0];
-  const used = {};
-  const head = FORM_FIXED.slice();
-  cols.forEach((id, i) => {
-    const f = form.fields.find(x => x.id === id);
-    let label = f ? f.label : String(oldHead[FORM_FIXED.length + i] || id).replace(/ \(removed\)$/, '') + ' (removed)';
-    const base = label; let n = 2;
-    while (used[label]) label = base + ' (' + (n++) + ')';
-    used[label] = true;
-    head.push(safe_(label));
-  });
-  sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
-  sh.setFrozenRows(1);
-  if (fresh) backfill_(sh, form, cols);
-  getFormsSheet_().getRange(form._row, 9, 1, 2).setValues([[sh.getSheetId(), JSON.stringify(cols)]]);
-  return { sh: sh, cols: cols };
-}
-
-function ensureFormSheet_(form) {
-  const sh = findSheet_(form.sheetId);
-  if (sh && form.fields.every(f => form.cols.indexOf(f.id) >= 0)) return { sh: sh, cols: form.cols };
-  return syncFormSheet_(form);
-}
-
-// New tab for an older form: copy that form's answers over from the old Responses archive.
-function backfill_(sh, form, cols) {
-  const rs = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(RESP_SHEET);
-  if (!rs || rs.getLastRow() < 2) return;
-  const people = {};
-  rows_(getSheet_(), HEADERS.length).forEach(r => people[String(r[2]).toLowerCase()] = r);
-  const out = rows_(rs, RESP_HEADERS.length).filter(r => String(r[1]) === form.id).map(r => {
-    const p = people[String(r[3]).toLowerCase()];
-    return responseValues_(form, cols, r[0], r[2], r[3], r[4], p ? p[7] : '', parse_(r[5], {}));
-  });
-  if (out.length) sh.getRange(2, 1, out.length, out[0].length).setValues(out);
-}
-
-// Every response to every form, read straight from the form tabs.
-function readResponses_(forms) {
-  const out = [];
-  forms.forEach(f => {
-    const t = ensureFormSheet_(f);
-    const n = t.sh.getLastRow() - 1;
-    if (n < 1) return;
-    const width = FORM_FIXED.length + t.cols.length;
-    const head = t.sh.getRange(1, 1, 1, width).getValues()[0];
-    t.sh.getRange(2, 1, n, width).getValues().forEach(r => {
-      if (!r[2]) return;
-      const answers = {};
-      t.cols.forEach((id, i) => {
-        let v = r[FORM_FIXED.length + i];
-        if (v === '' || v == null) return;
-        if (v instanceof Date) v = v.toISOString().slice(0, 10);
-        answers[id] = { l: String(head[FORM_FIXED.length + i]).replace(/ \(removed\)$/, ''), v: v };
-      });
-      out.push({ ts: r[0], formId: f.id, name: r[1], email: r[2], code: r[3], answers: answers });
-    });
-  });
-  return out.sort((a, b) => new Date(a.ts) - new Date(b.ts)).slice(-5000);
-}
-
-function str_(v, max) { return String(v == null ? '' : v).trim().slice(0, max); }
 
 function cleanField_(f, used) {
   f = f || {};
@@ -218,8 +122,8 @@ function cleanForm_(f) {
   const used = {};
   const s = f.settings || {};
   return {
-    id: typeof f.id === 'string' && /^[a-z0-9]{3,20}$/.test(f.id) ? f.id : '',
-    title: str_(f.title, 120) || 'Untitled form',
+    id: FORM_ID,
+    title: str_(f.title, 120) || 'Join Fujin Labs',
     description: str_(f.description, 600),
     status: f.status === 'Draft' ? 'Draft' : 'Published',
     settings: {
@@ -243,11 +147,69 @@ function writeForm_(sh, f, existingRow) {
   }
 }
 
-function newFormId_() {
-  const ids = readForms_().map(f => f.id);
-  let id;
-  do { id = 'f' + Math.random().toString(36).slice(2, 8); } while (ids.indexOf(id) >= 0);
-  return id;
+// ---------- questions become columns in Signups ----------
+const colOf_ = (form, id) => LEGACY[id] || QSTART + form.cols.indexOf(id);
+const stripRemoved_ = s => String(s).replace(/ \(removed\)$/, '');
+
+// Makes the Signups headers match the form: a new question gets a new column on the right, a renamed question renames
+// its header, and a deleted question keeps its column marked "(removed)" so no data is lost. Columns you add yourself
+// to the right of the questions are pushed along, never overwritten.
+function syncColumns_(form) {
+  const sh = getSheet_();
+  const prev = form.cols || [];
+  const cols = prev.slice();
+  form.fields.forEach(f => { if (!LEGACY[f.id] && cols.indexOf(f.id) < 0) cols.push(f.id); });
+  const head = sh.getRange(1, 1, 1, Math.max(QSTART + cols.length, sh.getLastColumn())).getValues()[0];
+  cols.forEach((id, i) => {
+    if (prev.indexOf(id) < 0 && String(head[QSTART - 1 + i] || '') !== '') {   // spot taken by one of your own columns
+      sh.insertColumnBefore(QSTART + i);
+      head.splice(QSTART - 1 + i, 0, '');
+    }
+  });
+  const used = {};
+  const label = (id, idx) => {
+    const f = form.fields.find(x => x.id === id);
+    let text = f ? f.label : stripRemoved_(head[idx - 1] || id) + ' (removed)';
+    const base = text; let n = 2;
+    while (used[text]) text = base + ' (' + (n++) + ')';
+    used[text] = true;
+    return safe_(text);
+  };
+  Object.keys(LEGACY).forEach(id => { head[LEGACY[id] - 1] = label(id, LEGACY[id]); });
+  cols.forEach((id, i) => { head[QSTART - 1 + i] = label(id, QSTART + i); });
+  sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  getFormsSheet_().getRange(form._row, 9, 1, 2).setValues([['', JSON.stringify({ v: 2, cols: cols })]]);
+  form.cols = cols;
+  return cols;
+}
+
+// Older versions kept answers in a separate "Form - ..." tab. Copy them into the question columns once.
+function migrateOldTab_(form) {
+  const oldTab = form._oldSheetId ? SpreadsheetApp.getActiveSpreadsheet().getSheets().find(s => String(s.getSheetId()) === form._oldSheetId && s.getName() !== SHEET_NAME) : null;
+  form.cols = [];
+  syncColumns_(form);
+  if (!oldTab || oldTab.getLastRow() < 2 || !form._oldCols.length) return;
+  const sh = getSheet_();
+  const people = rows_(sh, QSTART - 1 + form.cols.length);
+  const byEmail = {};
+  people.forEach((r, i) => byEmail[String(r[2]).toLowerCase()] = { r: r, row: i + 2 });
+  const oldRows = rows_(oldTab, 5 + form._oldCols.length);
+  oldRows.forEach(o => {
+    const p = byEmail[String(o[2]).toLowerCase()];
+    if (!p) return;
+    form._oldCols.forEach((id, i) => {
+      const v = o[5 + i];
+      if (v === '' || v == null || !form.fields.some(f => f.id === id)) return;
+      const c = colOf_(form, id);
+      if (c > 0 && (p.r[c - 1] === '' || p.r[c - 1] == null)) sh.getRange(p.row, c).setValue(v);
+    });
+  });
+}
+
+function ensureColumns_(form) {
+  if (form.cols === null) { migrateOldTab_(form); return; }
+  if (form.fields.some(f => !LEGACY[f.id] && form.cols.indexOf(f.id) < 0)) syncColumns_(form);
 }
 
 // Check one submission against the form's own rules. Returns { answers } (id -> {l, v}) or { error }.
@@ -277,6 +239,15 @@ function validateAnswers_(form, raw) {
     out[f.id] = { l: f.label, v: v };
   }
   return { answers: out };
+}
+
+// What goes into a cell for one answer.
+function cellValue_(form, id, a) {
+  if (!a) return '';
+  const f = form.fields.find(q => q.id === id);
+  if (f && f.type === 'number') return Number(a.v);
+  const text = safe_(flat_(a));
+  return f && f.type === 'phone' && /^\d/.test(text) ? "'" + text : text;     // keep leading zeros
 }
 
 // ---------- helpers ----------
@@ -314,15 +285,17 @@ function doPost(e) {
   try {
     const req = JSON.parse(e.postData.contents);
     const sh = getSheet_();
-    const data = rows_(sh, HEADERS.length);
+    const form = readForm_();
+    ensureColumns_(form);                                   // keeps the sheet's columns in step with the form
+    const width = Math.max(QSTART - 1 + form.cols.length, sh.getLastColumn());
+    const data = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, width).getValues() : [];
     const email = String(req.email || '').trim().toLowerCase();
 
     // ----- public -----
     if (req.action === 'config') return json_({ tiers: tiers_() });
 
     if (req.action === 'form') {
-      const form = getForm_(String(req.id || 'default'));
-      if (!form || form.status !== 'Published') return json_({ error: 'This form is not available right now.' });
+      if (form.status !== 'Published') return json_({ error: 'This form is closed right now.' });
       return json_({ form: publicForm_(form) });
     }
 
@@ -340,34 +313,32 @@ function doPost(e) {
     if (req.action === 'join') {
       const name = str_(req.name, 120);
       if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json_({ error: 'Enter your name and a valid email.' });
-
-      const form = getForm_(String(req.formId || 'default'));
-      if (!form || form.status !== 'Published') return json_({ error: 'This form is not available right now.' });
+      if (form.status !== 'Published') return json_({ error: 'This form is closed right now.' });
       const checked = validateAnswers_(form, req.answers || {});
       if (checked.error) return json_({ error: checked.error });
       const a = checked.answers;
 
       const existing = data.find(r => String(r[2]).toLowerCase() === email);
-      let code, status = 'None', count = 0, ref = '';
-
       if (existing) {
-        // The original referrer is kept and can never be changed.
-        code = existing[6]; ref = existing[7]; status = existing[9] || 'None'; count = countFor_(data, code);
-      } else {
-        const taken = {};
-        data.forEach(r => taken[r[6]] = true);
-        ref = form.settings.referral === false ? '' : String(req.ref || '').trim().toUpperCase();
-        if (!taken[ref]) ref = '';
-        code = newCode_(taken);
-        const rowNum = sh.getLastRow() + 1;
-        sh.appendRow([new Date(), safe_(name), email, safe_(flat_(a.company)), safe_(flat_(a.phone)), safe_(flat_(a.interest)), code, ref, '', 'None', '', form.id]);
-        sh.getRange(rowNum, 9).setFormula('=COUNTIF($H$2:$H, G' + rowNum + ')');
+        // Already signed up: their original answers and referrer are kept and can never be changed from the form.
+        return json_({ code: existing[6], existing: true, count: countFor_(data, existing[6]), status: existing[9] || 'None', after: form.settings.after, message: form.settings.message });
       }
 
-      // Save the answers in the form's own tab: one column per question.
-      const tab = ensureFormSheet_(form);
-      tab.sh.appendRow(responseValues_(form, tab.cols, new Date(), name, email, code, ref, a));
-      return json_({ code: code, existing: !!existing, count: count, status: status, after: form.settings.after, message: form.settings.message });
+      const taken = {};
+      data.forEach(r => taken[r[6]] = true);
+      let ref = form.settings.referral === false ? '' : String(req.ref || '').trim().toUpperCase();
+      if (!taken[ref]) ref = '';
+      const code = newCode_(taken);
+      const rowNum = sh.getLastRow() + 1;
+
+      const row = [new Date(), safe_(name), email, '', '', '', code, ref, '', 'None', ''];
+      form.fields.forEach(f => {
+        if (LEGACY[f.id] || form.cols.indexOf(f.id) >= 0) row[colOf_(form, f.id) - 1] = cellValue_(form, f.id, a[f.id]);
+      });
+      for (let i = 0; i < row.length; i++) if (row[i] === undefined) row[i] = '';
+      sh.appendRow(row);
+      sh.getRange(rowNum, 9).setFormula('=COUNTIF($H$2:$H, G' + rowNum + ')');
+      return json_({ code: code, existing: false, count: 0, status: 'None', after: form.settings.after, message: form.settings.message });
     }
 
     // ----- admin (password required on every call) -----
@@ -377,22 +348,29 @@ function doPost(e) {
       if (req.action === 'a_login') return json_({ ok: true });
 
       if (req.action === 'a_list') {
+        const head = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0] : [];
         const byCode = {};
         data.forEach(r => byCode[r[6]] = r);
-        const resp = readResponses_(readForms_());        // also creates any missing form tabs
-        const perForm = {};
-        resp.forEach(r => perForm[r.formId] = (perForm[r.formId] || 0) + 1);
+        const answerIds = Object.keys(LEGACY).concat(form.cols);
         return json_({
           tiers: tiers_(),
           statuses: STATUSES,
-          sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl(),
-          forms: readForms_().map(f => Object.assign(publicForm_(f), { responses: perForm[f.id] || 0, gid: f.sheetId })),
-          responses: resp,
-          rows: data.map(r => ({
-            ts: r[0], name: r[1], email: r[2], company: r[3], phone: String(r[4]), interest: r[5],
-            code: r[6], ref: r[7], refName: r[7] && byCode[r[7]] ? byCode[r[7]][1] : '',
-            count: countFor_(data, r[6]), status: r[9] || 'None', notes: r[10] || '', formId: r[11] || 'default'
-          }))
+          sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl() + '#gid=' + sh.getSheetId(),
+          form: Object.assign(publicForm_(form), { columns: QSTART - 1 + form.cols.length }),
+          rows: data.map(r => {
+            const answers = {};
+            answerIds.forEach(id => {
+              let v = r[colOf_(form, id) - 1];
+              if (v === '' || v == null) return;
+              if (v instanceof Date) v = v.toISOString().slice(0, 10);
+              answers[id] = { l: stripRemoved_(head[colOf_(form, id) - 1] || id), v: v };
+            });
+            return {
+              ts: r[0], name: r[1], email: r[2], company: r[3], phone: String(r[4]), interest: r[5],
+              code: r[6], ref: r[7], refName: r[7] && byCode[r[7]] ? byCode[r[7]][1] : '',
+              count: countFor_(data, r[6]), status: r[9] || 'None', notes: r[10] || '', answers: answers
+            };
+          })
         });
       }
 
@@ -408,21 +386,7 @@ function doPost(e) {
       if (req.action === 'a_delete') {
         const idx = data.findIndex(r => r[6] === req.code);
         if (idx < 0) return json_({ error: 'Not found' });
-        const mail = String(data[idx][2]).toLowerCase();
         sh.deleteRow(idx + 2);
-        // Remove their answers from every form tab (and the old archive, if it exists).
-        const tabs = readForms_().map(f => findSheet_(f.sheetId)).filter(Boolean);
-        const archive = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(RESP_SHEET);
-        tabs.forEach(t => {
-          const n = t.getLastRow() - 1;
-          if (n < 1) return;
-          const col = t.getRange(2, 3, n, 1).getValues();
-          for (let i = n - 1; i >= 0; i--) if (String(col[i][0]).toLowerCase() === mail) t.deleteRow(i + 2);
-        });
-        if (archive && archive.getLastRow() > 1) {
-          const col = archive.getRange(2, 4, archive.getLastRow() - 1, 1).getValues();
-          for (let i = col.length - 1; i >= 0; i--) if (String(col[i][0]).toLowerCase() === mail) archive.deleteRow(i + 2);
-        }
         return json_({ ok: true });
       }
 
@@ -436,27 +400,10 @@ function doPost(e) {
 
       if (req.action === 'a_form_save') {
         const f = cleanForm_(req.form);
-        const fs = getFormsSheet_();
-        const rows = rows_(fs, FORM_HEADERS.length);
-        const idx = f.id ? rows.findIndex(r => String(r[0]) === f.id) : -1;
-        if (f.id && idx < 0) return json_({ error: 'That form no longer exists.' });
-        if (idx < 0) f.id = newFormId_();
-        if (f.id === 'default') f.status = 'Published';
-        writeForm_(fs, f, idx < 0 ? null : idx + 2);
-        // Every question becomes a column in this form's tab (created on first save, new questions added after that).
-        const saved = readForms_().find(x => x.id === f.id);
-        const tab = syncFormSheet_(saved);
-        return json_({ ok: true, form: publicForm_(saved), gid: tab.sh.getSheetId(), tabName: tab.sh.getName(), columns: tab.cols.length });
-      }
-
-      if (req.action === 'a_form_delete') {
-        const id = String(req.id || '');
-        if (id === 'default') return json_({ error: 'The main form cannot be deleted. You can edit it instead.' });
-        const fs = getFormsSheet_();
-        const idx = rows_(fs, FORM_HEADERS.length).findIndex(r => String(r[0]) === id);
-        if (idx < 0) return json_({ error: 'Not found' });
-        fs.deleteRow(idx + 2);
-        return json_({ ok: true });
+        writeForm_(getFormsSheet_(), f, form._row);
+        const saved = readForm_();
+        syncColumns_(saved);                                // new questions become columns right now
+        return json_({ ok: true, form: publicForm_(saved), columns: QSTART - 1 + saved.cols.length, sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl() + '#gid=' + sh.getSheetId() });
       }
     }
 
