@@ -52,9 +52,15 @@ One look for every page: clean light surfaces, white cards, warm orange accents.
 | `refer.html` | Page 2: Refer & Earn (rewards, your code, share, referral count). The form sends people here |
 | `admin.html` | Password-protected admin console (not linked publicly) |
 | `styles.css` | Shared design system, upload with the pages |
-| `config.js` | The one place for the Apps Script Web app URL (empty = demo mode) |
-| `app.js` | Shared public-page code: backend calls, demo mode, saved visitor |
+| `config.js` | The one place for the Apps Script Web app URL |
+| `app.js` | Shared public-page code: backend calls, icons, saved visitor |
+| `formkit.js` | Draws a form from its question list and reads the answers. Used by `index.html` and by the admin live preview |
 | `Code.gs` | Google Apps Script backend, pasted into the Sheet |
+
+## Forms
+Forms are data, not code. The admin Forms tab creates them and `Code.gs` stores them in the `Forms` tab of the Sheet. `index.html` is the form with id `default`; `index.html?form=ID` opens any other published form. Every form always asks Name and Email (they identify the person for referrals); everything else is a question the admin adds. Question types: short, long, email, phone, number, date, dropdown, radio, checkbox, consent. Add a new type in three places: `FormKit.TYPES` and `build()` in `formkit.js`, plus `FIELD_TYPES` and `validateAnswers_` in `Code.gs`. The server validates every submission against the saved form, so never rely on browser checks alone.
+
+Sheet tabs: `Signups` (one row per person), `Responses` (every submission, answers as JSON), `Forms`, `Rewards`.
 
 ## Page flow
 Invite link `index.html?ref=CODE` → form (code locked) → submit → `refer.html` shows the new person's own code. The visitor's email and code are kept in this device's `localStorage` (`fujin_user`), never in the URL. Invite links always point to `index.html`, so every new person fills the form first.

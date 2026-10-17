@@ -12,40 +12,27 @@
 </head>
 <body>
 <main>
-  <!-- Page 1 of 2: the sign-up form. Anyone arriving from an invite link (?ref=CODE) lands here first. -->
+  <!-- Page 1 of 2: a form made in the admin page. index.html is the main form; index.html?form=ID opens any other form.
+       Anyone arriving from an invite link (?ref=CODE) lands here first. -->
   <div class="card top">
     <div class="brand"><i></i>Fujin Labs</div>
     <a class="btn" href="refer.html">Refer &amp; Earn</a>
   </div>
 
   <header class="card hero">
-    <h1>Join Fujin Labs</h1>
-    <p class="lede" id="lede">Tell us a little about you. It takes about a minute, and you can start earning rewards right after.</p>
+    <h1 id="formTitle">Join Fujin Labs</h1>
+    <p class="lede" id="lede">Loading the form...</p>
   </header>
 
-  <div id="banner" class="banner" hidden>Demo mode: entries are saved only in this browser. Set your Web app URL in config.js to store them in your Google Sheet.</div>
-
-  <section class="card" aria-labelledby="formTitle">
-    <h2 id="formTitle">Your details</h2>
-    <form class="stack" id="joinForm" novalidate>
+  <section class="card" id="formCard" hidden aria-labelledby="formTitle">
+    <form class="stack" id="joinForm" novalidate style="margin-top:0">
       <div class="two">
-        <label for="name">Full name<input id="name" autocomplete="name" required></label>
-        <label for="email">Email<input id="email" type="email" inputmode="email" autocomplete="email" required></label>
+        <label for="name">Full name<input id="name" autocomplete="name" maxlength="120"></label>
+        <label for="email">Email<input id="email" type="email" inputmode="email" autocomplete="email" maxlength="200"></label>
       </div>
-      <div class="two">
-        <label for="company">Company <small>(optional)</small><input id="company" autocomplete="organization"></label>
-        <label for="phone">Phone <small>(optional)</small><input id="phone" type="tel" inputmode="tel" autocomplete="tel"></label>
-      </div>
-      <label for="interest">What are you interested in?
-        <select id="interest" required>
-          <option value="">Choose one</option>
-          <option>Product demo</option>
-          <option>Consulting</option>
-          <option>Partnership</option>
-          <option>Something else</option>
-        </select>
-      </label>
-      <label for="ref"><span>Referral code <small id="refOpt">(if someone invited you)</small></span>
+      <p class="hint bad" id="err_name" role="alert"></p>
+      <div id="questions" style="display:flex;flex-direction:column;gap:18px"></div>
+      <label for="ref" id="refBox"><span>Referral code <small id="refOpt">(if someone invited you)</small></span>
         <input id="ref" placeholder="FUJIN-XXXX" autocapitalize="characters" autocomplete="off" spellcheck="false">
         <span class="lockrow" id="lockRow" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="3"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
@@ -53,10 +40,22 @@
         </span>
         <p class="hint" id="refHint"></p>
       </label>
-      <label class="consent" for="consent"><input id="consent" type="checkbox">I agree that Fujin Labs may contact me about this request.</label>
       <p class="hint bad" id="formErr" role="alert"></p>
       <button class="big" id="submitBtn" type="submit">Submit and continue</button>
     </form>
+  </section>
+
+  <section class="card" id="doneCard" hidden aria-live="polite">
+    <div class="success">
+      <span class="ico" data-icon="check"></span>
+      <div><h2>Thank you!</h2><p class="sub" id="doneMsg" style="margin:2px 0 0">Your response was recorded.</p></div>
+    </div>
+    <div class="row" style="margin-top:18px"><a class="btn primary" href="refer.html">See my Refer &amp; Earn rewards</a></div>
+  </section>
+
+  <section class="card" id="errCard" hidden>
+    <h2>This form is not available</h2>
+    <p class="sub" id="errMsg">It may be closed or the link may be wrong.</p>
   </section>
 
   <details class="card" id="lookup">
@@ -72,10 +71,33 @@
 </main>
 
 <script src="config.js"></script>
+<script src="formkit.js"></script>
 <script src="app.js"></script>
 <script>
 const NEXT_PAGE = "refer.html";
-let refLocked = false;
+const formId = new URLSearchParams(location.search).get("form") || "default";
+let FORM = null, refLocked = false;
+
+/* ---- Load the form from the Sheet ---- */
+(async function loadForm(){
+  try{
+    const out = await api.form(formId);
+    FORM = out.form;
+    document.title = FORM.title;
+    $("formTitle").textContent = FORM.title;
+    $("lede").textContent = FORM.description || "";
+    $("lede").hidden = !FORM.description;
+    FormKit.render($("questions"), FORM.fields);
+    $("submitBtn").textContent = FORM.settings.submitLabel || "Submit";
+    $("refBox").hidden = FORM.settings.referral === false;
+    $("formCard").hidden = false;
+    if(FORM.settings.referral !== false) initRef();
+  }catch(e){
+    $("lede").hidden = true;
+    $("errMsg").textContent = e.message;
+    $("errCard").hidden = false;
+  }
+})();
 
 /* ---- Referral lock: a code that comes from an invite link cannot be edited or removed ---- */
 function storedRef(){ try{ return localStorage.getItem("fujin_ref") || ""; }catch(e){ return ""; } }
@@ -103,7 +125,6 @@ async function checkRef(){
     const who = await api.check(code);
     if(who){
       h.className = "hint ok"; h.textContent = "Invited by " + who; $("lockMsg").textContent = "Locked. Invited by " + who + ".";
-      $("lede").textContent = who + " invited you to Fujin Labs. Fill in your details to join.";
       return true;
     }
     h.className = "hint bad"; h.textContent = "We could not find that code.";
@@ -113,29 +134,34 @@ async function checkRef(){
 }
 $("ref").addEventListener("blur", () => { if(!refLocked) checkRef(); });
 
-(async function initRef(){
+async function initRef(){
   const fromLink = (new URLSearchParams(location.search).get("ref") || "").trim().toUpperCase();
   const code = /^FUJIN-[A-Z0-9]{4}$/.test(fromLink) ? fromLink : storedRef();
   if(code){ storeRef(code); lockRef(code); await checkRef(); }
-})();
+}
 
-/* ---- Submit: save the visitor on this device, then go to the Refer & Earn page ---- */
+/* ---- Submit: save the visitor on this device, then go to the next step ---- */
 $("joinForm").addEventListener("submit", async e => {
   e.preventDefault();
-  const err = $("formErr"); err.textContent = "";
-  const d = {name:$("name").value.trim(), email:$("email").value.trim().toLowerCase(), company:$("company").value.trim(),
-    phone:$("phone").value.trim(), interest:$("interest").value, ref:$("ref").value.trim().toUpperCase() || null};
-  if(!d.name) return err.textContent = "Enter your name.";
-  if(!EMAIL_RE.test(d.email)) return err.textContent = "Enter a valid email address.";
-  if(!d.interest) return err.textContent = "Choose what you are interested in.";
-  if(!$("consent").checked) return err.textContent = "Please tick the consent box to continue.";
+  if(!FORM) return;
+  const err = $("formErr"); err.textContent = ""; $("err_name").textContent = "";
+  const name = $("name").value.trim(), email = $("email").value.trim().toLowerCase();
+  if(!name || !EMAIL_RE.test(email)){
+    $("err_name").textContent = !name ? "Enter your name." : "Enter a valid email address.";
+    (!name ? $("name") : $("email")).focus(); return;
+  }
+  const got = FormKit.collect(FORM.fields, $("questions"));
+  if(got.error) return;
   $("submitBtn").disabled = true;
   try{
-    const res = await api.join(d);
-    setUser({email:d.email, code:res.code});
+    const res = await api.join({formId:FORM.id, name, email, ref:FORM.settings.referral === false ? null : ($("ref").value.trim().toUpperCase() || null), answers:got.answers});
+    setUser({email, code:res.code});
     clearRef();
-    location.href = NEXT_PAGE;
-  }catch(ex){ err.textContent = "Something went wrong. Please try again in a moment."; $("submitBtn").disabled = false; }
+    if(res.after === "message"){
+      $("doneMsg").textContent = res.message || "Your response was recorded.";
+      $("formCard").hidden = true; $("doneCard").hidden = false; $("doneCard").scrollIntoView({behavior:"smooth"});
+    } else location.href = NEXT_PAGE;
+  }catch(ex){ err.textContent = ex.message || "Something went wrong. Please try again in a moment."; $("submitBtn").disabled = false; }
 });
 
 $("lookupForm").addEventListener("submit", async e => {
