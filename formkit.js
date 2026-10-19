@@ -9,7 +9,7 @@ const FormKit = (() => {
 
   function el(tag, props, ...kids){
     const n = document.createElement(tag);
-    Object.entries(props || {}).forEach(([k, v]) => { if(k === "class") n.className = v; else if(v === true) n.setAttribute(k, ""); else if(v !== false && v != null) n.setAttribute(k, v); });
+    Object.entries(props || {}).forEach(([k, v]) => { if(k === "class") n.className = v; else if(typeof v === "function" && k.startsWith("on")) n.addEventListener(k.slice(2), v); else if(v === true) n.setAttribute(k, ""); else if(v !== false && v != null) n.setAttribute(k, v); });
     kids.flat().forEach(c => { if(c != null) n.append(c.nodeType ? c : document.createTextNode(c)); });
     return n;
   }

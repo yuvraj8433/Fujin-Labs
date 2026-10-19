@@ -34,6 +34,7 @@ One look for every page: clean light surfaces, white cards, warm orange accents.
 - **Progress** `.bar` with `<i style="width:40%">`. Distribution bars use `.bars` and `.tr`.
 - **Pills and status**: `.pill`, `.pill.eligible` (orange), `.pill.paid` (green); `.conn` for a connection or section tag (`.demo` for the yellow demo state).
 - **Messages**: `.msg` or `.hint` with `.ok` / `.bad`. `.banner` for notices.
+- **Data viewer** (admin): sortable, filterable table with a column picker, plus a referral tree. Names, "Referred by" and referral counts are `.linkbtn` buttons that open the **profile panel** (`.overlay` + `.sheet`): who referred them, everyone they referred (each clickable), their answers, and reward status and notes. Any new place that shows a person should link to `openProfile(code)` rather than invent its own detail view.
 - **Icon circle** `.ico` with an inline SVG, stroke `currentColor`.
 
 ## Rules
@@ -61,7 +62,7 @@ One look for every page: clean light surfaces, white cards, warm orange accents.
 There is one form for everyone. The admin **Form** tab edits it, and `Code.gs` stores its definition in the `Forms` tab. `index.html` always shows it. Every submission is one row in the **Signups** tab of the Sheet, and every question is one column in that same tab, so all data lives in one place.
 
 - Name and Email are always asked (they identify the person for referrals). Everything else is a question the admin adds. Types: short, long, email, phone, number, date, dropdown, radio, checkbox, consent.
-- Saving the form syncs the Signups headers: a new question gets a new column on the right, a renamed question renames its header, a deleted question keeps its column marked "(removed)" so no data is lost. Columns the owner adds to the right of the questions are pushed along, never overwritten. Questions with the ids `company`, `phone`, `interest` use the original columns D, E, F.
+- Column order in Signups is always: Timestamp, Name, Email, then every form question (one column each), then My Code, Referred By, Referral Count, Reward Status, Notes. Saving the form syncs the headers: a new question is inserted just before My Code, a renamed question renames its header, a deleted question keeps its column marked "(removed)" so no data is lost. The referral columns are found by their header names, so columns the owner adds elsewhere never break anything. Never reorder or insert columns inside the question block.
 - Someone who submits again with the same email keeps their original answers and referrer.
 - The server validates every submission against the saved form, so never rely on browser checks alone.
 - Add a new question type in `FormKit.TYPES` and `build()` in `formkit.js`, plus `FIELD_TYPES` and `validateAnswers_` in `Code.gs`.

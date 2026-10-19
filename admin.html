@@ -80,6 +80,59 @@
   .pv h2{font-size:26px}
   .pv-note{font:700 12px var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
   .pv [disabled]{opacity:.7;cursor:not-allowed}
+
+  /* data viewer */
+  .seg{display:inline-flex;border:1.5px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+  .seg button{border-radius:0;box-shadow:none;background:#fff;color:var(--ink);min-height:42px;padding:8px 16px}
+  .seg button[aria-pressed="true"]{background:var(--orange);color:#fff}
+  .dfilters{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px}
+  @media(max-width:640px){.dfilters{grid-template-columns:1fr}}
+  .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:14px;max-height:68vh;background:#fff}
+  table.dt{border-collapse:separate;border-spacing:0;min-width:100%;font-size:14px}
+  .dt th,.dt td{padding:10px 14px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line);max-width:260px;overflow:hidden;text-overflow:ellipsis}
+  .dt thead th{position:sticky;top:0;z-index:2;background:var(--well);font:700 12px var(--body);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:0}
+  .dt thead th button{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:6px;width:100%;padding:12px 14px;cursor:pointer;color:inherit}
+  .dt thead th button:hover{color:var(--ink)}
+  .dt thead th button:focus-visible{outline:3px solid #ffb27a;outline-offset:-3px}
+  .dt th[aria-sort="ascending"] button::after{content:"\2191";color:var(--orange)}
+  .dt th[aria-sort="descending"] button::after{content:"\2193";color:var(--orange)}
+  .dt td.num,.dt th.num button{text-align:right;justify-content:flex-end}
+  .dt tbody tr:hover td{background:var(--tint)}
+  .dt td:first-child,.dt th:first-child{position:sticky;left:0;z-index:1;background:#fff;border-right:1px solid var(--line)}
+  .dt thead th:first-child{z-index:3;background:var(--well)}
+  .dt tbody tr:hover td:first-child{background:var(--tint)}
+  .linkbtn{all:unset;cursor:pointer;color:var(--orange-deep);font-weight:700;text-decoration:underline;text-decoration-color:#f0c9a8;text-underline-offset:3px;border-radius:4px}
+  .linkbtn:hover{text-decoration-color:var(--orange)}
+  .linkbtn:focus-visible{outline:3px solid #ffb27a;outline-offset:2px}
+  .colpick{border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:#fff}
+  .colpick summary{cursor:pointer;font:700 14px var(--body);color:var(--orange-deep)}
+  .colpick .cols{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:10px}
+  .colpick label{flex-direction:row;align-items:center;gap:8px;font:600 14px var(--body);color:var(--ink)}
+  .colpick input{width:18px;height:18px;min-height:0;padding:0;accent-color:var(--orange)}
+  .pager{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+  ul.tree,ul.tree ul{list-style:none;margin:0;padding:0}
+  ul.tree ul{margin-left:18px;padding-left:14px;border-left:2px solid var(--orange-soft)}
+  ul.tree li{margin:6px 0}
+  ul.tree summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 10px;border-radius:10px;background:#fff;border:1px solid var(--line);list-style:none}
+  ul.tree summary::-webkit-details-marker{display:none}
+  ul.tree summary::before{content:"+";font-weight:800;color:var(--orange);width:14px;text-align:center}
+  ul.tree details[open]>summary::before{content:"\2212"}
+  ul.tree .leaf{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 10px 8px 34px;border-radius:10px;background:#fff;border:1px solid var(--line)}
+  ul.tree small{color:var(--muted)}
+
+  /* profile panel */
+  .overlay{position:fixed;inset:0;background:rgba(29,26,23,.45);display:flex;justify-content:flex-end;z-index:30}
+  .sheet{width:min(560px,100%);height:100%;overflow:auto;background:var(--bg);padding:16px max(16px,env(safe-area-inset-right,0px)) 32px 16px;display:flex;flex-direction:column;gap:16px;box-shadow:-12px 0 40px rgba(60,35,10,.2)}
+  .sheet:focus{outline:none}
+  .sheethead{display:flex;gap:10px;justify-content:space-between;position:sticky;top:0;background:var(--bg);padding:4px 0 10px;z-index:1}
+  .sheet h2{font-size:26px}
+  .rlist{display:flex;flex-direction:column;gap:8px}
+  .rrow{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:#fff}
+  .rrow:hover{background:var(--tint);border-color:#f3b88a}
+  .rrow:focus-visible{outline:3px solid #ffb27a;outline-offset:2px}
+  .rrow b{flex:1 1 140px;min-width:0;overflow-wrap:anywhere}
+  .rrow small{color:var(--muted)}
+  body.noscroll{overflow:hidden}
 </style>
 </head>
 <body>
@@ -107,6 +160,7 @@
     </div>
     <div class="tabs" role="tablist" style="margin-top:14px">
       <button role="tab" aria-selected="true" data-tab="over">Overview</button>
+      <button role="tab" aria-selected="false" data-tab="data">Data viewer</button>
       <button role="tab" aria-selected="false" data-tab="people">Sign-ups</button>
       <button role="tab" aria-selected="false" data-tab="form">Form</button>
       <button role="tab" aria-selected="false" data-tab="rewards">Reward tiers</button>
@@ -118,6 +172,33 @@
       <div class="grid2">
         <div class="card"><h2>Top referrers</h2><ol class="lb" id="leaders"></ol></div>
         <div class="card"><h2 id="breakTitle">Answers</h2><div class="bars" id="breakBars"></div><h2 style="margin-top:24px">Last 7 days</h2><div class="bars" id="dayBars"></div></div>
+      </div>
+    </section>
+
+    <section id="p-data" class="panel" hidden>
+      <div class="card top">
+        <div><h2>Data viewer</h2><p class="sub">Every person and every answer in one place. Click a name to see who they referred and who referred them.</p></div>
+        <div class="seg" role="group" aria-label="View"><button type="button" id="vTable" aria-pressed="true">Table</button><button type="button" id="vTree" aria-pressed="false">Referral tree</button></div>
+      </div>
+      <div id="dTable" class="card stack">
+        <div class="dfilters">
+          <label for="dq">Search<input id="dq" type="search" placeholder="Name, email, code, any answer"></label>
+          <label for="dShow">Show<select id="dShow"><option value="">Everyone</option><option value="referrers">People who referred someone</option><option value="referred">People who were referred</option><option value="direct">Direct sign-ups (no referrer)</option><option value="ready">Ready to reward</option></select></label>
+          <label for="dStatus">Reward status<select id="dStatus"><option value="">All</option></select></label>
+        </div>
+        <details class="colpick"><summary>Choose columns</summary><div class="cols" id="colList"></div></details>
+        <div class="pager"><span class="msg" id="dInfo" role="status"></span><button class="soft" id="dExport" type="button">Export this view (CSV)</button></div>
+        <div class="tablewrap" tabindex="0" role="region" aria-label="All sign-ups table"><table class="dt" id="dt"></table></div>
+        <div class="pager"><button class="soft" id="dPrev" type="button">Previous</button><span class="msg" id="dPage"></span><button class="soft" id="dNext" type="button">Next</button></div>
+      </div>
+      <div id="dTree" class="card stack" hidden>
+        <div class="dfilters" style="grid-template-columns:2fr 1fr">
+          <label for="tq">Find a person<input id="tq" type="search" placeholder="Name, email or code"></label>
+          <div class="row" style="align-items:end"><button class="soft" id="treeOpen" type="button">Expand all</button><button class="soft" id="treeClose" type="button">Collapse all</button></div>
+        </div>
+        <label class="tick" for="tAll"><input type="checkbox" id="tAll">Also list people who have not referred anyone</label>
+        <p class="msg" id="treeInfo" role="status"></p>
+        <ul class="tree" id="tree"></ul>
       </div>
     </section>
 
@@ -180,6 +261,13 @@
       <div class="row"><button class="soft" id="addTier" type="button">Add tier</button><button id="saveTiers" type="button">Save tiers</button></div>
       <p class="msg" id="tierMsg" role="status"></p>
     </section>
+
+    <div id="profile" class="overlay" hidden>
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="profName" tabindex="-1">
+        <div class="sheethead"><button class="soft" id="profBack" type="button">Back</button><button class="soft" id="profClose" type="button">Close</button></div>
+        <div id="profBody" class="stack"></div>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -226,7 +314,7 @@ async function load(){
   const d = await call("a_list", {});
   DATA = {rows:d.rows || [], tiers:d.tiers || [], form:d.form, sheetUrl:d.sheetUrl || "", statuses:d.statuses || DATA.statuses};
   $("openSheet").href = DATA.sheetUrl || "#";
-  renderOverview(); renderPeople(); renderTiers();
+  indexPeople(); renderOverview(); renderPeople(); renderTiers(); renderData(); renderTree(); refreshProfile();
   if(!dirty) openEditor(DATA.form);
 }
 $("reload").addEventListener("click", async e => { e.target.disabled = true; try{ await load(); say("Refreshed."); }catch(x){ say(x.message, true); } e.target.disabled = false; });
@@ -288,7 +376,7 @@ function personCard(r){
     catch(e){ msg.className = "msg bad"; msg.textContent = e.message; }
     save.disabled = false;
   });
-  const basics = [["Email", r.email], ["Joined", fmtDate(r.ts)], ["Referred by", r.ref ? (r.refName || "Unknown") + " (" + r.ref + ")" : "Nobody"]];
+  const basics = [["Email", r.email], ["Joined", fmtDate(r.ts)], ["Referred by", r.ref && byCode[r.ref] ? linkBtn(byCode[r.ref].name, r.ref) : r.ref ? (r.refName || "Unknown") + " (" + r.ref + ")" : "Nobody"]];
   const keys = Object.keys(r.answers || {});
   const reward = tier ? h("span", {class:"pill " + (r.status === "Paid / Sent" ? "paid" : "eligible")}, (r.status === "Paid / Sent" ? "Earned: " : "Eligible: ") + tier.reward)
     : h("span", {class:"pill"}, r.status === "None" ? "No reward yet" : r.status);
@@ -306,7 +394,7 @@ function personCard(r){
           keys.length ? h("dl", {class:"meta"}, keys.flatMap(k => [h("dt", {}, r.answers[k].l), h("dd", {}, shown(r.answers[k].v))])) : h("p", {class:"msg"}, "No answers saved."))),
       h("div", {class:"edit"}, h("h4", {}, "Reward and notes"),
         h("label", {for:"st-" + r.code}, "Reward status", status), h("label", {for:"nt-" + r.code}, "Private notes", notes),
-        h("div", {class:"row"}, save, del), msg)));
+        h("div", {class:"row"}, save, del, h("button", {class:"soft", type:"button", onclick:() => openProfile(r.code)}, "Open profile")), msg)));
 }
 
 function filteredRows(){
@@ -437,7 +525,7 @@ $("saveTiers").addEventListener("click", async e => {
 /* ---- Tabs and CSV ---- */
 function goTab(name){
   document.querySelectorAll("[data-tab]").forEach(x => x.setAttribute("aria-selected", String(x.dataset.tab === name)));
-  ["over","people","form","rewards"].forEach(t => $("p-" + t).hidden = t !== name);
+  ["over","data","people","form","rewards"].forEach(t => $("p-" + t).hidden = t !== name);
 }
 document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => goTab(b.dataset.tab)));
 
@@ -454,6 +542,212 @@ $("exportCsv").addEventListener("click", () => {
   const a = h("a", {href:url, download:"fujin-labs-signups-" + new Date().toISOString().slice(0,10) + ".csv"}); document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 });
+
+/* ---- Referral network: who referred whom ---- */
+let byCode = {}, kids = {}, net = {};
+function indexPeople(){
+  byCode = {}; kids = {}; net = {};
+  DATA.rows.forEach(r => { byCode[r.code] = r; });
+  DATA.rows.forEach(r => { if(r.ref && byCode[r.ref] && r.ref !== r.code) (kids[r.ref] = kids[r.ref] || []).push(r); });
+  const size = (r, seen) => { let n = 0; (kids[r.code] || []).forEach(c => { if(seen.has(c.code)) return; seen.add(c.code); n += 1 + size(c, seen); }); return n; };
+  DATA.rows.forEach(r => { net[r.code] = size(r, new Set([r.code])); });
+}
+const children = r => kids[r.code] || [];
+const rewardText = r => { const t = earned(children(r).length); return t ? (r.status === "Paid / Sent" ? "Earned: " : "Eligible: ") + t.reward : "-"; };
+function linkBtn(label, code){ return h("button", {type:"button", class:"linkbtn", onclick:() => openProfile(code)}, label); }
+function refreshViews(){ renderOverview(); renderPeople(); renderData(); renderTree(); }
+
+/* ---- Data viewer: table ---- */
+const tbl = {sort:{key:"ts", dir:"desc"}, page:0, size:50, hidden:new Set(["notes"])};
+function dataColumns(){
+  const cols = [{key:"name", label:"Name", get:r => r.name, link:true}, {key:"email", label:"Email", get:r => r.email}];
+  const seen = new Set();
+  DATA.form.fields.forEach(f => { seen.add(f.id); cols.push({key:"q_" + f.id, label:f.label, num:f.type === "number", get:r => r.answers[f.id] ? shown(r.answers[f.id].v) : ""}); });
+  DATA.rows.forEach(r => Object.keys(r.answers).forEach(k => { if(seen.has(k)) return; seen.add(k); cols.push({key:"q_" + k, label:r.answers[k].l + " (removed)", get:x => x.answers[k] ? shown(x.answers[k].v) : ""}); }));
+  cols.push({key:"code", label:"Code", get:r => r.code},
+    {key:"refby", label:"Referred by", get:r => r.ref && byCode[r.ref] ? byCode[r.ref].name : "", ref:true},
+    {key:"count", label:"Referrals", num:true, get:r => children(r).length, open:true},
+    {key:"net", label:"Network", num:true, get:r => net[r.code] || 0, open:true},
+    {key:"reward", label:"Reward", get:rewardText},
+    {key:"status", label:"Status", get:r => r.status},
+    {key:"ts", label:"Joined", date:true, get:r => r.ts},
+    {key:"notes", label:"Notes", get:r => r.notes});
+  return cols;
+}
+
+function viewRows(){
+  const q = $("dq").value.trim().toLowerCase(), show = $("dShow").value, st = $("dStatus").value;
+  const cols = dataColumns();
+  let rows = DATA.rows.filter(r => {
+    if(q && !(r.name + " " + r.email + " " + r.code + " " + Object.values(r.answers).map(a => shown(a.v)).join(" ")).toLowerCase().includes(q)) return false;
+    if(show === "referrers" && !children(r).length) return false;
+    if(show === "referred" && !(r.ref && byCode[r.ref])) return false;
+    if(show === "direct" && r.ref && byCode[r.ref]) return false;
+    if(show === "ready" && !needsReward(r)) return false;
+    if(st && r.status !== st) return false;
+    return true;
+  });
+  const col = cols.find(c => c.key === tbl.sort.key) || cols[0], dir = tbl.sort.dir === "asc" ? 1 : -1;
+  const val = r => { const v = col.get(r); return col.num ? Number(v) || 0 : col.date ? new Date(v).getTime() || 0 : String(v).toLowerCase(); };
+  rows.sort((a, b) => { const x = val(a), y = val(b); if(x === y) return 0; if(x === "" ) return 1; if(y === "") return -1; return (x > y ? 1 : -1) * dir; });
+  return {rows, cols};
+}
+
+function renderData(){
+  if(!DATA.form) return;
+  if(!tbl.init){ tbl.init = true; DATA.form.fields.forEach(f => { if(f.type === "consent" || f.type === "long") tbl.hidden.add("q_" + f.id); }); }   // keep the table narrow; tick them in "Choose columns"
+  const stSel = $("dStatus"), keep = stSel.value; stSel.textContent = ""; stSel.append(h("option", {value:""}, "All"));
+  DATA.statuses.forEach(s => stSel.append(h("option", {value:s}, s))); stSel.value = keep;
+  const {rows, cols} = viewRows();
+  const list = $("colList"); list.textContent = "";
+  cols.forEach(c => { const cb = h("input", {type:"checkbox", id:"col-" + c.key, checked:!tbl.hidden.has(c.key)});
+    cb.addEventListener("change", () => { cb.checked ? tbl.hidden.delete(c.key) : tbl.hidden.add(c.key); renderData(); });
+    list.append(h("label", {for:"col-" + c.key}, cb, c.label)); });
+  const vis = cols.filter(c => !tbl.hidden.has(c.key));
+  const pages = Math.max(1, Math.ceil(rows.length / tbl.size));
+  tbl.page = Math.min(tbl.page, pages - 1);
+  const slice = rows.slice(tbl.page * tbl.size, (tbl.page + 1) * tbl.size);
+  const table = $("dt"); table.textContent = "";
+  const head = h("tr", {});
+  vis.forEach(c => {
+    const b = h("button", {type:"button", title:"Sort by " + c.label}, c.label);
+    b.addEventListener("click", () => { tbl.sort = {key:c.key, dir:tbl.sort.key === c.key && tbl.sort.dir === "asc" ? "desc" : "asc"}; tbl.page = 0; renderData(); });
+    head.append(h("th", {scope:"col", class:c.num ? "num" : "", "aria-sort":tbl.sort.key === c.key ? (tbl.sort.dir === "asc" ? "ascending" : "descending") : "none"}, b));
+  });
+  table.append(h("thead", {}, head));
+  const body = h("tbody", {});
+  slice.forEach(r => {
+    const tr = h("tr", {});
+    vis.forEach(c => {
+      const v = c.get(r);
+      let content = c.date ? fmtDate(v) : String(v);
+      if(c.link) content = linkBtn(r.name, r.code);
+      else if(c.ref && r.ref && byCode[r.ref]) content = linkBtn(v, r.ref);
+      else if(c.open && Number(v) > 0) content = linkBtn(String(v), r.code);
+      tr.append(h("td", {class:c.num ? "num" : "", title:typeof content === "string" ? content : ""}, content));
+    });
+    body.append(tr);
+  });
+  if(!slice.length) body.append(h("tr", {}, h("td", {colspan:String(vis.length || 1)}, "No people match these filters.")));
+  table.append(body);
+  $("dInfo").textContent = rows.length + " of " + DATA.rows.length + " people";
+  $("dPage").textContent = "Page " + (tbl.page + 1) + " of " + pages;
+  $("dPrev").disabled = tbl.page === 0; $("dNext").disabled = tbl.page >= pages - 1;
+}
+["input","change"].forEach(ev => ["dq","dShow","dStatus"].forEach(id => $(id).addEventListener(ev, () => { tbl.page = 0; renderData(); })));
+$("dPrev").addEventListener("click", () => { tbl.page--; renderData(); });
+$("dNext").addEventListener("click", () => { tbl.page++; renderData(); });
+$("dExport").addEventListener("click", () => {
+  const {rows, cols} = viewRows(), vis = cols.filter(c => !tbl.hidden.has(c.key));
+  const csv = [vis.map(c => c.label)].concat(rows.map(r => vis.map(c => c.date ? fmtDate(c.get(r)) : c.get(r)))).map(r => r.map(cell).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob(["﻿" + csv], {type:"text/csv;charset=utf-8"}));
+  const a = h("a", {href:url, download:"fujin-labs-view-" + new Date().toISOString().slice(0,10) + ".csv"}); document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+});
+
+/* ---- Data viewer: referral tree ---- */
+function setView(v){
+  $("dTable").hidden = v !== "table"; $("dTree").hidden = v !== "tree";
+  $("vTable").setAttribute("aria-pressed", String(v === "table")); $("vTree").setAttribute("aria-pressed", String(v === "tree"));
+}
+$("vTable").addEventListener("click", () => setView("table"));
+$("vTree").addEventListener("click", () => { setView("tree"); renderTree(); });
+
+function renderTree(){
+  const ul = $("tree"); if(!ul) return; ul.textContent = "";
+  const q = $("tq").value.trim().toLowerCase(), all = $("tAll").checked;
+  const match = r => !q || (r.name + " " + r.email + " " + r.code).toLowerCase().includes(q);
+  const memo = {};
+  const hit = (r, path) => {
+    if(memo[r.code] !== undefined) return memo[r.code];
+    if(path.has(r.code)) return false;
+    path.add(r.code);
+    const v = match(r) || children(r).some(c => hit(c, path));
+    path.delete(r.code); return (memo[r.code] = v);
+  };
+  const node = (r, path) => {
+    const sub = children(r).filter(c => !path.has(c.code) && (!q || hit(c, new Set())));
+    const label = [linkBtn(r.name, r.code), h("small", {}, r.email), h("span", {class:"pill"}, children(r).length + " referred"), net[r.code] > children(r).length ? h("span", {class:"pill"}, net[r.code] + " in network") : null];
+    if(!sub.length) return h("li", {}, h("div", {class:"leaf"}, label));
+    const next = new Set(path); next.add(r.code);
+    return h("li", {}, h("details", {open:!!q}, h("summary", {}, label), h("ul", {}, sub.map(c => node(c, next)))));
+  };
+  const roots = DATA.rows.filter(r => !(r.ref && byCode[r.ref] && r.ref !== r.code))
+    .filter(r => (all || children(r).length) && (!q || hit(r, new Set())))
+    .sort((a, b) => (net[b.code] - net[a.code]) || (new Date(b.ts) - new Date(a.ts)));
+  roots.forEach(r => ul.append(node(r, new Set())));
+  const referrers = DATA.rows.filter(r => children(r).length).length;
+  $("treeInfo").textContent = roots.length ? roots.length + " starting points. " + referrers + " people have referred at least one person." : (q ? "Nobody matches that search." : "Nobody has referred anyone yet.");
+}
+["input","change"].forEach(ev => ["tq","tAll"].forEach(id => $(id).addEventListener(ev, renderTree)));
+$("treeOpen").addEventListener("click", () => document.querySelectorAll("#tree details").forEach(d => d.open = true));
+$("treeClose").addEventListener("click", () => document.querySelectorAll("#tree details").forEach(d => d.open = false));
+
+/* ---- Profile panel: one person, who referred them, and everyone they referred ---- */
+let profStack = [], profOpener = null;
+function openProfile(code){
+  if(!byCode[code]) return;
+  if(!profStack.length) profOpener = document.activeElement;
+  if(profStack[profStack.length - 1] !== code) profStack.push(code);
+  $("profile").hidden = false; document.body.classList.add("noscroll");
+  renderProfile(); $("profile").querySelector(".sheet").scrollTop = 0; $("profile").querySelector(".sheet").focus();
+}
+function closeProfile(){
+  profStack = []; $("profile").hidden = true; document.body.classList.remove("noscroll");
+  if(profOpener && document.contains(profOpener)) profOpener.focus(); profOpener = null;
+}
+function refreshProfile(){
+  if($("profile").hidden || !profStack.length) return;
+  profStack = profStack.filter(c => byCode[c]);
+  if(!profStack.length) closeProfile(); else renderProfile();
+}
+$("profClose").addEventListener("click", closeProfile);
+$("profBack").addEventListener("click", () => { profStack.pop(); profStack.length ? renderProfile() : closeProfile(); });
+$("profile").addEventListener("click", e => { if(e.target === $("profile")) closeProfile(); });
+document.addEventListener("keydown", e => { if(e.key === "Escape" && !$("profile").hidden) closeProfile(); });
+
+function renderProfile(){
+  const r = byCode[profStack[profStack.length - 1]]; if(!r) return;
+  $("profBack").hidden = profStack.length < 2;
+  const body = $("profBody"); body.textContent = "";
+  const kidsList = children(r).slice().sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  const tier = earned(kidsList.length), next = DATA.tiers.find(t => t.need > kidsList.length);
+  const referrer = r.ref && byCode[r.ref] ? byCode[r.ref] : null;
+
+  body.append(h("div", {}, h("h2", {id:"profName"}, r.name), h("p", {class:"sub"}, r.email),
+    h("div", {class:"pills", style:"margin-top:8px"}, h("span", {class:"pill"}, r.code), h("span", {class:"pill"}, "Joined " + fmtDate(r.ts)), h("span", {class:"pill"}, r.status === "None" ? "No reward status" : r.status))));
+
+  body.append(h("div", {class:"stats"},
+    h("div", {class:"stat"}, h("b", {}, kidsList.length), h("span", {}, "People referred")),
+    h("div", {class:"stat"}, h("b", {}, net[r.code] || 0), h("span", {}, "In their network")),
+    h("div", {class:"stat" + (tier && r.status !== "Paid / Sent" ? " alert" : "")}, h("b", {style:"font-size:20px"}, tier ? tier.reward : "None yet"), h("span", {}, tier ? (r.status === "Paid / Sent" ? "Reward sent" : "Reward unlocked") : next ? (next.need - kidsList.length) + " more to unlock " + next.reward : "No reward tiers"))));
+
+  body.append(h("div", {class:"card stack"}, h("h3", {}, "Referred by"),
+    referrer ? h("button", {type:"button", class:"rrow", onclick:() => openProfile(referrer.code)}, h("b", {}, referrer.name), h("small", {}, referrer.email), h("span", {class:"pill"}, referrer.code))
+      : h("p", {class:"msg"}, r.ref ? "Their code " + r.ref + " is no longer in the list." : "Nobody. They signed up directly.")));
+
+  const rl = h("div", {class:"rlist"});
+  kidsList.forEach(c => rl.append(h("button", {type:"button", class:"rrow", onclick:() => openProfile(c.code)},
+    h("b", {}, c.name), h("small", {}, c.email), h("small", {}, fmtDate(c.ts)), h("span", {class:"pill"}, children(c).length + " referred"))));
+  body.append(h("div", {class:"card stack"}, h("h3", {}, "People they referred (" + kidsList.length + ")"), kidsList.length ? rl : h("p", {class:"msg"}, "Nobody yet.")));
+
+  const keys = Object.keys(r.answers || {});
+  body.append(h("div", {class:"card stack"}, h("h3", {}, "Form answers"),
+    keys.length ? h("dl", {class:"meta"}, keys.flatMap(k => [h("dt", {}, r.answers[k].l), h("dd", {}, shown(r.answers[k].v))])) : h("p", {class:"msg"}, "No answers saved.")));
+
+  const status = h("select", {id:"pst"}, DATA.statuses.map(s => h("option", {value:s, selected:s === r.status}, s)));
+  const notes = h("textarea", {id:"pnt"}, r.notes);
+  const msg = h("p", {class:"msg", role:"status"});
+  const save = h("button", {type:"button"}, "Save");
+  save.addEventListener("click", async () => {
+    save.disabled = true; msg.className = "msg"; msg.textContent = "Saving...";
+    try{ await call("a_update", {code:r.code, status:status.value, notes:notes.value}); r.status = status.value; r.notes = notes.value; msg.className = "msg ok"; msg.textContent = "Saved."; refreshViews(); }
+    catch(e){ msg.className = "msg bad"; msg.textContent = e.message; }
+    save.disabled = false;
+  });
+  body.append(h("div", {class:"card stack"}, h("h3", {}, "Reward and notes"),
+    h("label", {for:"pst"}, "Reward status", status), h("label", {for:"pnt"}, "Private notes", notes), h("div", {class:"row"}, save), msg));
+}
 </script>
 </body>
 </html>

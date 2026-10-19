@@ -2,16 +2,19 @@
 // Paste into Extensions > Apps Script of your Google Sheet, then Deploy > Web app (Execute as: Me, Access: Anyone).
 // Admin password: Project Settings (gear icon) > Script properties > add  ADMIN_PASSWORD = <your password>
 //
-// Everything lives in ONE tab, "Signups": one row per person, one column per form question.
+// Everything lives in ONE tab, "Signups": one row per person. Column order:
+//   Timestamp | Name | Email | <your form questions, one column each> | My Code | Referred By | Referral Count | Reward Status | Notes
+// A new question is inserted just before "My Code", so your answers always sit together, then the referral columns.
 // Other tabs: Forms (the form's definition), Rewards (reward tiers). Old tabs from earlier versions are left alone.
 
 const SHEET_NAME = 'Signups';
 const REWARDS_SHEET = 'Rewards';
 const FORMS_SHEET = 'Forms';
 const FORM_ID = 'default';
-const HEADERS = ['Timestamp', 'Name', 'Email', 'Company', 'Phone', 'Interest', 'My Code', 'Referred By', 'Referral Count', 'Reward Status', 'Notes'];
-const QSTART = HEADERS.length + 1;                       // column 12: the first extra question column
-const LEGACY = { company: 4, phone: 5, interest: 6 };    // questions with these ids use the original columns D, E, F
+const SYS = ['My Code', 'Referred By', 'Referral Count', 'Reward Status', 'Notes'];      // the columns after the questions
+const HEADERS = ['Timestamp', 'Name', 'Email'].concat(SYS);                               // a brand new sheet starts like this
+const QSTART = 4;                                                                         // first question column (1-based)
+const LEGACY_IDS = ['company', 'phone', 'interest'];                                      // the three question columns older sheets already had
 const REWARD_HEADERS = ['Referrals Needed', 'Reward', 'Type', 'Details'];
 const FORM_HEADERS = ['ID', 'Title', 'Description', 'Fields', 'Settings', 'Status', 'Created', 'Updated', 'Sheet ID', 'Columns'];
 const STATUSES = ['None', 'Pending', 'Approved', 'Paid / Sent'];
@@ -53,8 +56,9 @@ function makeSheet_(name, headers) {
 
 function getSheet_() {
   const sh = makeSheet_(SHEET_NAME, HEADERS).sh;
-  // An earlier version added a "Form ID" column here. It is no longer used, so remove it before questions take its place.
-  if (sh.getLastColumn() >= QSTART && sh.getRange(1, QSTART).getValue() === 'Form ID') sh.deleteColumn(QSTART);
+  // An earlier version added a "Form ID" column. It is no longer used, so remove it.
+  const at = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].indexOf('Form ID') : -1;
+  if (at >= 0) sh.deleteColumn(at + 1);
   return sh;
 }
 
@@ -91,14 +95,19 @@ function tiers_() {
 function parse_(s, fallback) { try { return JSON.parse(s); } catch (e) { return fallback; } }
 function str_(v, max) { return String(v == null ? '' : v).trim().slice(0, max); }
 
-// The form plus where each question lives. cols = ids of the question columns that start at column 12 (null = not set up yet).
+// The form plus where its questions live. state: 'v3' = columns sit before My Code, 'v2' = extra questions were
+// stored after Notes (previous version), 'old' = even older. cols = ids of the question columns, left to right.
 function readForm_() {
   const r = rows_(getFormsSheet_(), FORM_HEADERS.length).map((x, i) => ({ x: x, row: i + 2 })).find(o => String(o.x[0]) === FORM_ID);
   const m = parse_(r.x[9], null);
+  const obj = m && !Array.isArray(m) && typeof m === 'object' ? m : null;
   return {
     id: FORM_ID, title: String(r.x[1]), description: String(r.x[2]),
     fields: parse_(r.x[3], []), settings: parse_(r.x[4], {}), status: String(r.x[5]) === 'Draft' ? 'Draft' : 'Published',
-    _row: r.row, cols: m && !Array.isArray(m) && Array.isArray(m.cols) ? m.cols : null,
+    _row: r.row,
+    state: obj && obj.v === 3 ? 'v3' : obj && obj.v === 2 ? 'v2' : 'old',
+    cols: obj && obj.v === 3 && Array.isArray(obj.cols) ? obj.cols : [],
+    _v2cols: obj && obj.v === 2 && Array.isArray(obj.cols) ? obj.cols : [],
     _oldSheetId: r.x[8] === '' ? '' : String(r.x[8]), _oldCols: Array.isArray(m) ? m : []
   };
 }
@@ -147,69 +156,99 @@ function writeForm_(sh, f, existingRow) {
   }
 }
 
-// ---------- questions become columns in Signups ----------
-const colOf_ = (form, id) => LEGACY[id] || QSTART + form.cols.indexOf(id);
+// ---------- questions are columns in Signups, between Email and My Code ----------
 const stripRemoved_ = s => String(s).replace(/ \(removed\)$/, '');
 
-// Makes the Signups headers match the form: a new question gets a new column on the right, a renamed question renames
-// its header, and a deleted question keeps its column marked "(removed)" so no data is lost. Columns you add yourself
-// to the right of the questions are pushed along, never overwritten.
+function colLetter_(n) {
+  let s = '';
+  while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
+  return s;
+}
+
+// Where the referral columns are right now (0-based), found by their headers so columns you add yourself never break anything.
+function layout_(sh, form) {
+  const head = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0] : [];
+  const n = form.cols.length;
+  const at = (name, fallback) => { const i = head.lastIndexOf(name); return i >= 0 ? i : fallback; };
+  return { head: head, code: at('My Code', 3 + n), ref: at('Referred By', 4 + n), count: at('Referral Count', 5 + n), status: at('Reward Status', 6 + n), notes: at('Notes', 7 + n) };
+}
+
+// Makes the Signups headers match the form. A new question gets a new column just before "My Code", a renamed question
+// renames its header, and a deleted question keeps its column marked "(removed)" so no data is lost.
 function syncColumns_(form) {
   const sh = getSheet_();
-  const prev = form.cols || [];
+  const prev = form.cols;
   const cols = prev.slice();
-  form.fields.forEach(f => { if (!LEGACY[f.id] && cols.indexOf(f.id) < 0) cols.push(f.id); });
-  const head = sh.getRange(1, 1, 1, Math.max(QSTART + cols.length, sh.getLastColumn())).getValues()[0];
-  cols.forEach((id, i) => {
-    if (prev.indexOf(id) < 0 && String(head[QSTART - 1 + i] || '') !== '') {   // spot taken by one of your own columns
-      sh.insertColumnBefore(QSTART + i);
-      head.splice(QSTART - 1 + i, 0, '');
-    }
-  });
+  form.fields.forEach(f => { if (cols.indexOf(f.id) < 0) cols.push(f.id); });
+  for (let i = prev.length; i < cols.length; i++) sh.insertColumnBefore(QSTART + i);
+  const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
   const used = {};
-  const label = (id, idx) => {
+  cols.forEach((id, i) => {
     const f = form.fields.find(x => x.id === id);
-    let text = f ? f.label : stripRemoved_(head[idx - 1] || id) + ' (removed)';
+    let text = f ? f.label : stripRemoved_(head[QSTART - 1 + i] || id) + ' (removed)';
     const base = text; let n = 2;
     while (used[text]) text = base + ' (' + (n++) + ')';
     used[text] = true;
-    return safe_(text);
-  };
-  Object.keys(LEGACY).forEach(id => { head[LEGACY[id] - 1] = label(id, LEGACY[id]); });
-  cols.forEach((id, i) => { head[QSTART - 1 + i] = label(id, QSTART + i); });
+    head[QSTART - 1 + i] = safe_(text);
+  });
   sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
   sh.setFrozenRows(1);
-  getFormsSheet_().getRange(form._row, 9, 1, 2).setValues([['', JSON.stringify({ v: 2, cols: cols })]]);
+  getFormsSheet_().getRange(form._row, 9, 1, 2).setValues([['', JSON.stringify({ v: 3, cols: cols })]]);
   form.cols = cols;
+  form.state = 'v3';
   return cols;
 }
 
-// Older versions kept answers in a separate "Form - ..." tab. Copy them into the question columns once.
-function migrateOldTab_(form) {
+// Older sheets: bring everything into the order Name | Email | questions | My Code | ... | Notes.
+function upgradeLayout_(form) {
+  const sh = getSheet_();
+  const head = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0] : [];
+  const codeIdx = head.lastIndexOf('My Code');
+  const extras = form.state === 'v2' ? form._v2cols : [];
+  let cols = [];
+  if (codeIdx - 3 === LEGACY_IDS.length) {
+    cols = LEGACY_IDS.slice();                                // the old Company | Phone | Interest columns
+    const k = extras.length;
+    if (k > 0) {                                              // extra questions were after Notes: move them in front of My Code
+      const last = sh.getLastRow();
+      const from = head.lastIndexOf('Notes') + 2;             // 1-based column of the first extra question
+      for (let i = 0; i < k; i++) sh.insertColumnBefore(codeIdx + 1);
+      const moved = sh.getRange(1, from + k, last, k).getValues();
+      sh.getRange(1, codeIdx + 1, last, k).setValues(moved);
+      for (let i = 0; i < k; i++) sh.deleteColumn(from + k);
+      cols = cols.concat(extras);
+    }
+  }
+  form.cols = cols;
+  getFormsSheet_().getRange(form._row, 9, 1, 2).setValues([[form._oldSheetId, JSON.stringify({ v: 3, cols: cols })]]);
+  form.state = 'v3';
+  syncColumns_(form);                                         // adds a column for any question that has none yet
+  copyFromOldTab_(form);
+}
+
+// The oldest versions kept answers in a separate "Form - ..." tab. Copy them into the question columns once.
+function copyFromOldTab_(form) {
   const oldTab = form._oldSheetId ? SpreadsheetApp.getActiveSpreadsheet().getSheets().find(s => String(s.getSheetId()) === form._oldSheetId && s.getName() !== SHEET_NAME) : null;
-  form.cols = [];
-  syncColumns_(form);
   if (!oldTab || oldTab.getLastRow() < 2 || !form._oldCols.length) return;
   const sh = getSheet_();
-  const people = rows_(sh, QSTART - 1 + form.cols.length);
+  const people = rows_(sh, sh.getLastColumn());
   const byEmail = {};
   people.forEach((r, i) => byEmail[String(r[2]).toLowerCase()] = { r: r, row: i + 2 });
-  const oldRows = rows_(oldTab, 5 + form._oldCols.length);
-  oldRows.forEach(o => {
+  rows_(oldTab, 5 + form._oldCols.length).forEach(o => {
     const p = byEmail[String(o[2]).toLowerCase()];
     if (!p) return;
     form._oldCols.forEach((id, i) => {
-      const v = o[5 + i];
-      if (v === '' || v == null || !form.fields.some(f => f.id === id)) return;
-      const c = colOf_(form, id);
-      if (c > 0 && (p.r[c - 1] === '' || p.r[c - 1] == null)) sh.getRange(p.row, c).setValue(v);
+      const v = o[5 + i], c = form.cols.indexOf(id);
+      if (v === '' || v == null || c < 0) return;
+      if (p.r[QSTART - 1 + c] === '' || p.r[QSTART - 1 + c] == null) sh.getRange(p.row, QSTART + c).setValue(v);
     });
   });
+  getFormsSheet_().getRange(form._row, 9).setValue('');
 }
 
 function ensureColumns_(form) {
-  if (form.cols === null) { migrateOldTab_(form); return; }
-  if (form.fields.some(f => !LEGACY[f.id] && form.cols.indexOf(f.id) < 0)) syncColumns_(form);
+  if (form.state !== 'v3') upgradeLayout_(form);
+  else if (form.fields.some(f => form.cols.indexOf(f.id) < 0)) syncColumns_(form);
 }
 
 // Check one submission against the form's own rules. Returns { answers } (id -> {l, v}) or { error }.
@@ -253,7 +292,6 @@ function cellValue_(form, id, a) {
 // ---------- helpers ----------
 const safe_ = v => { v = String(v == null ? '' : v).trim(); return /^[=+\-@]/.test(v) ? "'" + v : v; };
 const json_ = obj => ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
-const countFor_ = (data, code) => data.filter(r => r[7] === code).length;
 const flat_ = a => a && a.v !== undefined ? (Array.isArray(a.v) ? a.v.join(', ') : (a.v === true ? 'Yes' : a.v)) : '';
 
 function newCode_(taken) {
@@ -287,8 +325,9 @@ function doPost(e) {
     const sh = getSheet_();
     const form = readForm_();
     ensureColumns_(form);                                   // keeps the sheet's columns in step with the form
-    const width = Math.max(QSTART - 1 + form.cols.length, sh.getLastColumn());
-    const data = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, width).getValues() : [];
+    const L = layout_(sh, form);
+    const data = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).getValues() : [];
+    const countFor = code => data.filter(r => r[L.ref] === code).length;
     const email = String(req.email || '').trim().toLowerCase();
 
     // ----- public -----
@@ -301,13 +340,13 @@ function doPost(e) {
 
     if (req.action === 'check') {
       const code = String(req.code || '').trim().toUpperCase();
-      const hit = data.find(r => r[6] === code);
+      const hit = data.find(r => r[L.code] === code);
       return json_(hit ? String(hit[1]).split(' ')[0] : null);
     }
 
     if (req.action === 'stats') {
       const me = data.find(r => String(r[2]).toLowerCase() === email);
-      return json_(me ? { code: me[6], count: countFor_(data, me[6]), status: me[9] || 'None' } : null);
+      return json_(me ? { code: me[L.code], count: countFor(me[L.code]), status: me[L.status] || 'None' } : null);
     }
 
     if (req.action === 'join') {
@@ -321,23 +360,23 @@ function doPost(e) {
       const existing = data.find(r => String(r[2]).toLowerCase() === email);
       if (existing) {
         // Already signed up: their original answers and referrer are kept and can never be changed from the form.
-        return json_({ code: existing[6], existing: true, count: countFor_(data, existing[6]), status: existing[9] || 'None', after: form.settings.after, message: form.settings.message });
+        return json_({ code: existing[L.code], existing: true, count: countFor(existing[L.code]), status: existing[L.status] || 'None', after: form.settings.after, message: form.settings.message });
       }
 
       const taken = {};
-      data.forEach(r => taken[r[6]] = true);
+      data.forEach(r => taken[r[L.code]] = true);
       let ref = form.settings.referral === false ? '' : String(req.ref || '').trim().toUpperCase();
       if (!taken[ref]) ref = '';
       const code = newCode_(taken);
       const rowNum = sh.getLastRow() + 1;
 
-      const row = [new Date(), safe_(name), email, '', '', '', code, ref, '', 'None', ''];
-      form.fields.forEach(f => {
-        if (LEGACY[f.id] || form.cols.indexOf(f.id) >= 0) row[colOf_(form, f.id) - 1] = cellValue_(form, f.id, a[f.id]);
-      });
-      for (let i = 0; i < row.length; i++) if (row[i] === undefined) row[i] = '';
+      const row = new Array(Math.max(L.notes + 1, sh.getLastColumn())).fill('');
+      row[0] = new Date(); row[1] = safe_(name); row[2] = email;
+      form.fields.forEach(f => { row[QSTART - 1 + form.cols.indexOf(f.id)] = cellValue_(form, f.id, a[f.id]); });
+      row[L.code] = code; row[L.ref] = ref; row[L.status] = 'None';
       sh.appendRow(row);
-      sh.getRange(rowNum, 9).setFormula('=COUNTIF($H$2:$H, G' + rowNum + ')');
+      const refCol = colLetter_(L.ref + 1);
+      sh.getRange(rowNum, L.count + 1).setFormula('=COUNTIF($' + refCol + '$2:$' + refCol + ', ' + colLetter_(L.code + 1) + rowNum + ')');
       return json_({ code: code, existing: false, count: 0, status: 'None', after: form.settings.after, message: form.settings.message });
     }
 
@@ -348,43 +387,43 @@ function doPost(e) {
       if (req.action === 'a_login') return json_({ ok: true });
 
       if (req.action === 'a_list') {
-        const head = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0] : [];
         const byCode = {};
-        data.forEach(r => byCode[r[6]] = r);
-        const answerIds = Object.keys(LEGACY).concat(form.cols);
+        data.forEach(r => byCode[r[L.code]] = r);
         return json_({
           tiers: tiers_(),
           statuses: STATUSES,
           sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl() + '#gid=' + sh.getSheetId(),
-          form: Object.assign(publicForm_(form), { columns: QSTART - 1 + form.cols.length }),
+          form: Object.assign(publicForm_(form), { columns: sh.getLastColumn() }),
           rows: data.map(r => {
             const answers = {};
-            answerIds.forEach(id => {
-              let v = r[colOf_(form, id) - 1];
+            form.cols.forEach((id, i) => {
+              let v = r[QSTART - 1 + i];
               if (v === '' || v == null) return;
               if (v instanceof Date) v = v.toISOString().slice(0, 10);
-              answers[id] = { l: stripRemoved_(head[colOf_(form, id) - 1] || id), v: v };
+              if (typeof v === 'string' && v.charAt(0) === "'") v = v.slice(1);
+              answers[id] = { l: stripRemoved_(L.head[QSTART - 1 + i] || id), v: v };
             });
+            const val = id => answers[id] ? String(answers[id].v) : '';
             return {
-              ts: r[0], name: r[1], email: r[2], company: r[3], phone: String(r[4]), interest: r[5],
-              code: r[6], ref: r[7], refName: r[7] && byCode[r[7]] ? byCode[r[7]][1] : '',
-              count: countFor_(data, r[6]), status: r[9] || 'None', notes: r[10] || '', answers: answers
+              ts: r[0], name: r[1], email: r[2], company: val('company'), phone: val('phone'), interest: val('interest'),
+              code: r[L.code], ref: r[L.ref], refName: r[L.ref] && byCode[r[L.ref]] ? byCode[r[L.ref]][1] : '',
+              count: countFor(r[L.code]), status: r[L.status] || 'None', notes: r[L.notes] || '', answers: answers
             };
           })
         });
       }
 
       if (req.action === 'a_update') {
-        const idx = data.findIndex(r => r[6] === req.code);
+        const idx = data.findIndex(r => r[L.code] === req.code);
         if (idx < 0) return json_({ error: 'Not found' });
         const rowNum = idx + 2;
-        if (STATUSES.indexOf(req.status) >= 0) sh.getRange(rowNum, 10).setValue(req.status);
-        if (req.notes !== undefined) sh.getRange(rowNum, 11).setValue(safe_(req.notes));
+        if (STATUSES.indexOf(req.status) >= 0) sh.getRange(rowNum, L.status + 1).setValue(req.status);
+        if (req.notes !== undefined) sh.getRange(rowNum, L.notes + 1).setValue(safe_(req.notes));
         return json_({ ok: true });
       }
 
       if (req.action === 'a_delete') {
-        const idx = data.findIndex(r => r[6] === req.code);
+        const idx = data.findIndex(r => r[L.code] === req.code);
         if (idx < 0) return json_({ error: 'Not found' });
         sh.deleteRow(idx + 2);
         return json_({ ok: true });
@@ -403,7 +442,7 @@ function doPost(e) {
         writeForm_(getFormsSheet_(), f, form._row);
         const saved = readForm_();
         syncColumns_(saved);                                // new questions become columns right now
-        return json_({ ok: true, form: publicForm_(saved), columns: QSTART - 1 + saved.cols.length, sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl() + '#gid=' + sh.getSheetId() });
+        return json_({ ok: true, form: publicForm_(saved), columns: sh.getLastColumn(), sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl() + '#gid=' + sh.getSheetId() });
       }
     }
 
