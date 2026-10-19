@@ -29,15 +29,33 @@
   ol.lb .ct{font:800 20px var(--display);font-variant-numeric:tabular-nums}
   .filters{display:grid;grid-template-columns:2fr 1fr;gap:12px}
   @media(max-width:640px){.filters{grid-template-columns:1fr}}
-  .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr));gap:16px;margin-top:18px}
-  .person{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
-  .person h3{overflow-wrap:anywhere}
-  .meta{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px;margin:0}
+  /* sign-ups as a list: one full-width row per person, click a row to open it */
+  .list{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+  .listhead,.prow>summary{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.1fr) 110px minmax(0,1.3fr) 110px 22px;gap:12px;align-items:center}
+  .listhead{padding:0 16px;font:700 12px var(--body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .prow{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);min-width:0}
+  .prow[open]{border-color:#f3b88a}
+  .prow>summary{padding:10px 16px;cursor:pointer;list-style:none;min-height:60px}
+  .prow>summary::-webkit-details-marker{display:none}
+  .prow>summary::after{content:"+";font-size:22px;line-height:1;color:var(--orange);justify-self:end}
+  .prow[open]>summary::after{content:"\2212"}
+  .prow>summary:focus-visible{outline:3px solid #ffb27a;outline-offset:2px;border-radius:14px}
+  .cname{min-width:0}
+  .cname b{display:block;font:700 15px var(--body);overflow-wrap:anywhere}
+  .cname small{color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+  .c-date{color:var(--muted);font-size:13px}
+  .pbody{padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:24px;border-top:1px solid var(--line)}
+  .pbody h4{margin:0 0 8px;font:800 12px var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .meta{display:grid;grid-template-columns:minmax(90px,38%) minmax(0,1fr);gap:6px 14px;font-size:14px;margin:0}
   .meta dt{color:var(--muted);font-weight:700} .meta dd{margin:0;overflow-wrap:anywhere}
-  .edit{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:12px}
-  .answers{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg)}
-  .answers summary{cursor:pointer;font:700 14px var(--body);color:var(--orange-deep)}
-  .answers .meta{margin-top:10px}
+  .edit{display:flex;flex-direction:column;gap:10px}
+  @media(max-width:760px){
+    .listhead{display:none}
+    .prow>summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;position:relative;padding-right:44px}
+    .prow>summary::after{position:absolute;right:16px;top:16px}
+    .cname{flex:1 1 100%}
+    .pbody{grid-template-columns:1fr}
+  }
   .tier-edit{display:grid;grid-template-columns:90px 1fr 110px auto;gap:10px;align-items:end;margin-top:12px}
   .tier-edit .full{grid-column:1/-1}
   @media(max-width:640px){.tier-edit{grid-template-columns:1fr 1fr;padding:12px;border-radius:14px;background:var(--well)}.tier-edit>*{grid-column:1/-1}}
@@ -109,6 +127,7 @@
         <label for="q">Search<input id="q" type="search" placeholder="Name, email, company, code"></label>
         <label for="fStatus">Reward<select id="fStatus"><option value="">All</option><option value="__ready">Ready to reward</option></select></label>
       </div>
+      <div class="listhead" aria-hidden="true"><span>Person</span><span>Code</span><span>Referrals</span><span>Reward</span><span>Joined</span><span></span></div>
       <div class="list" id="list"></div>
     </section>
 
@@ -250,14 +269,6 @@ function fillStatusFilter(){
   DATA.statuses.forEach(s => st.append(h("option", {value:s}, s))); st.value = keep;
 }
 
-function answersBlock(r){
-  const keys = Object.keys(r.answers || {});
-  if(!keys.length) return null;
-  const dl = h("dl", {class:"meta"});
-  keys.forEach(k => dl.append(h("dt", {}, r.answers[k].l), h("dd", {}, shown(r.answers[k].v))));
-  return h("details", {class:"answers"}, h("summary", {}, "Form answers (" + keys.length + ")"), dl);
-}
-
 function personCard(r){
   const tier = earned(r.count);
   const status = h("select", {id:"st-" + r.code}, DATA.statuses.map(s => h("option", {value:s, selected: s === r.status}, s)));
@@ -277,15 +288,25 @@ function personCard(r){
     catch(e){ msg.className = "msg bad"; msg.textContent = e.message; }
     save.disabled = false;
   });
-  const dl = [["Email", r.email], ["Phone", r.phone || "-"], ["Company", r.company || "-"], ["Joined", fmtDate(r.ts)], ["Referred by", r.ref ? (r.refName || "Unknown") + " (" + r.ref + ")" : "Nobody"]];
-  return h("article", {class:"person"},
-    h("div", {}, h("h3", {}, r.name), h("div", {class:"pills", style:"margin-top:6px"},
-      h("span", {class:"pill"}, r.code), h("span", {class:"pill"}, r.count + (r.count === 1 ? " referral" : " referrals")),
-      tier ? h("span", {class:"pill " + (r.status === "Paid / Sent" ? "paid" : "eligible")}, (r.status === "Paid / Sent" ? "Earned: " : "Eligible: ") + tier.reward) : null)),
-    h("dl", {class:"meta"}, dl.flatMap(([k, v]) => [h("dt", {}, k), h("dd", {}, v)])),
-    answersBlock(r),
-    h("div", {class:"edit"}, h("label", {for:"st-" + r.code}, "Reward status", status), h("label", {for:"nt-" + r.code}, "Private notes", notes),
-      h("div", {class:"row"}, save, del), msg));
+  const basics = [["Email", r.email], ["Joined", fmtDate(r.ts)], ["Referred by", r.ref ? (r.refName || "Unknown") + " (" + r.ref + ")" : "Nobody"]];
+  const keys = Object.keys(r.answers || {});
+  const reward = tier ? h("span", {class:"pill " + (r.status === "Paid / Sent" ? "paid" : "eligible")}, (r.status === "Paid / Sent" ? "Earned: " : "Eligible: ") + tier.reward)
+    : h("span", {class:"pill"}, r.status === "None" ? "No reward yet" : r.status);
+  return h("details", {class:"prow"},
+    h("summary", {},
+      h("div", {class:"cname"}, h("b", {}, r.name), h("small", {}, r.email)),
+      h("div", {class:"c-code"}, h("span", {class:"pill"}, r.code)),
+      h("div", {class:"c-ref"}, r.count + (r.count === 1 ? " referral" : " referrals")),
+      h("div", {class:"c-reward"}, reward),
+      h("div", {class:"c-date"}, fmtDate(r.ts))),
+    h("div", {class:"pbody"},
+      h("div", {class:"stack"},
+        h("div", {}, h("h4", {}, "Details"), h("dl", {class:"meta"}, basics.flatMap(([k, v]) => [h("dt", {}, k), h("dd", {}, v)]))),
+        h("div", {}, h("h4", {}, "Form answers"),
+          keys.length ? h("dl", {class:"meta"}, keys.flatMap(k => [h("dt", {}, r.answers[k].l), h("dd", {}, shown(r.answers[k].v))])) : h("p", {class:"msg"}, "No answers saved."))),
+      h("div", {class:"edit"}, h("h4", {}, "Reward and notes"),
+        h("label", {for:"st-" + r.code}, "Reward status", status), h("label", {for:"nt-" + r.code}, "Private notes", notes),
+        h("div", {class:"row"}, save, del), msg)));
 }
 
 function filteredRows(){
