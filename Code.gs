@@ -18,9 +18,9 @@ const LEGACY_IDS = ['company', 'phone', 'interest'];                            
 const REWARD_HEADERS = ['Referrals Needed', 'Reward', 'Type', 'Details'];
 const FORM_HEADERS = ['ID', 'Title', 'Description', 'Fields', 'Settings', 'Status', 'Created', 'Updated', 'Sheet ID', 'Columns'];
 const STATUSES = ['None', 'Pending', 'Approved', 'Paid / Sent'];
-const FIELD_TYPES = ['short', 'long', 'email', 'phone', 'number', 'date', 'dropdown', 'radio', 'checkbox', 'consent'];
+const FIELD_TYPES = ['short', 'long', 'email', 'phone', 'number', 'date', 'dropdown', 'radio', 'checkbox', 'consent', 'state'];
 const CHOICE_TYPES = ['dropdown', 'radio', 'checkbox'];
-const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const INDIAN_STATES = ["Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal","Andaman and Nicobar Islands","Chandigarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Jammu and Kashmir","Ladakh","Lakshadweep","Puducherry"];
 const DEFAULT_TIERS = [   // placeholders: change them in the admin page or the Rewards tab
   [3, 'Rs 500 cash', 'Money', 'Sent to your UPI or bank account'],
   [10, 'Fujin Labs gift hamper', 'Gift', 'Delivered to your address'],
@@ -35,6 +35,7 @@ const DEFAULT_FORM = {
   fields: [
     { id: 'company', type: 'short', label: 'Company', help: '', required: false, options: [] },
     { id: 'phone', type: 'phone', label: 'Phone', help: '', required: false, options: [] },
+    { id: 'state', type: 'state', label: 'State', help: 'Used for your referral code.', required: true, options: INDIAN_STATES },
     { id: 'interest', type: 'dropdown', label: 'What are you interested in?', help: '', required: true, options: ['Product demo', 'Consulting', 'Partnership', 'Something else'] },
     { id: 'consent', type: 'consent', label: 'I agree that Fujin Labs may contact me about this request.', help: '', required: true, options: [] }
   ]
@@ -120,7 +121,8 @@ function cleanField_(f, used) {
   let id = typeof f.id === 'string' && /^[a-z][a-z0-9_]{0,23}$/.test(f.id) && ['name', 'email', 'ref', 'undefined', 'null'].indexOf(f.id) < 0 ? f.id : '';
   while (!id || used[id]) id = 'q' + Math.random().toString(36).slice(2, 8);
   used[id] = true;
-  const options = CHOICE_TYPES.indexOf(type) >= 0
+  const options = type === 'state' ? INDIAN_STATES.slice()
+    : CHOICE_TYPES.indexOf(type) >= 0
     ? (Array.isArray(f.options) ? f.options : []).map(o => str_(o, 100)).filter(Boolean).slice(0, 50)
     : [];
   return { id: id, type: type, label: str_(f.label, 200) || 'Untitled question', help: str_(f.help, 300), required: !!f.required, options: options };
@@ -268,7 +270,7 @@ function validateAnswers_(form, raw) {
       v = v.slice(0, 50);
     } else {
       v = String(v).trim();
-      if (f.type === 'dropdown' || f.type === 'radio') { if (f.options.indexOf(v) < 0) return { error: 'Choose a valid option for "' + f.label + '".' }; }
+      if (f.type === 'dropdown' || f.type === 'radio' || f.type === 'state') { if (f.options.indexOf(v) < 0) return { error: 'Choose a valid option for "' + f.label + '".' }; }
       else if (f.type === 'email') { if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) || v.length > 200) return { error: 'Enter a valid email for "' + f.label + '".' }; }
       else if (f.type === 'phone') { if (!/^[+\d][\d\s\-()]{5,19}$/.test(v)) return { error: 'Enter a valid phone number for "' + f.label + '".' }; }
       else if (f.type === 'number') { if (!isFinite(Number(v))) return { error: 'Enter a number for "' + f.label + '".' }; }
@@ -294,12 +296,25 @@ const safe_ = v => { v = String(v == null ? '' : v).trim(); return /^[=+\-@]/.te
 const json_ = obj => ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 const flat_ = a => a && a.v !== undefined ? (Array.isArray(a.v) ? a.v.join(', ') : (a.v === true ? 'Yes' : a.v)) : '';
 
-function newCode_(taken) {
-  let code;
-  do {
-    code = 'FUJIN-';
-    for (let i = 0; i < 4; i++) code += ALPHABET.charAt(Math.floor(Math.random() * ALPHABET.length));
-  } while (taken[code]);
+// Three letters for a state: one word = its first three letters (Bihar = BIH); two words = first letter of the first
+// word + first two letters of the second (Uttar Pradesh = UPR); three or more = their initials (Dadra Nagar Haveli = DNH).
+// "and", "of" and "the" are ignored. No state given = XXX.
+function stateCode_(name) {
+  const words = String(name || '').replace(/&/g, ' ').split(/[^A-Za-z]+/)
+    .filter(w => w && ['and', 'of', 'the'].indexOf(w.toLowerCase()) < 0).map(w => w.toUpperCase());
+  if (!words.length) return 'XXX';
+  if (words.length === 1) return (words[0].slice(0, 3) + 'XX').slice(0, 3);
+  if (words.length === 2) return (words[0][0] + words[1].slice(0, 2) + 'XX').slice(0, 3);
+  return words.slice(0, 3).map(w => w[0]).join('');
+}
+
+// FUJIN-A0001UPR: A = the year (A = 2026, B = 2027, ...), 0001 = the next sign-up number for that year, UPR = the state.
+function newCode_(taken, stateName) {
+  const letter = String.fromCharCode(65 + Math.min(25, Math.max(0, new Date().getFullYear() - 2026)));
+  let max = 0;
+  Object.keys(taken).forEach(c => { const m = /^FUJIN-([A-Z])(\d{4,})[A-Z]{3}$/.exec(c); if (m && m[1] === letter) max = Math.max(max, Number(m[2])); });
+  let n = max + 1, code;
+  do { code = 'FUJIN-' + letter + String(n).padStart(4, '0') + stateCode_(stateName); n++; } while (taken[code]);
   return code;
 }
 
@@ -367,7 +382,8 @@ function doPost(e) {
       data.forEach(r => taken[r[L.code]] = true);
       let ref = form.settings.referral === false ? '' : String(req.ref || '').trim().toUpperCase();
       if (!taken[ref]) ref = '';
-      const code = newCode_(taken);
+      const stateField = form.fields.find(f => f.type === 'state');
+      const code = newCode_(taken, stateField && a[stateField.id] ? a[stateField.id].v : '');
       const rowNum = sh.getLastRow() + 1;
 
       const row = new Array(Math.max(L.notes + 1, sh.getLastColumn())).fill('');

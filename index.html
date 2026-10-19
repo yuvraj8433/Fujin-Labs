@@ -32,7 +32,7 @@
       <p class="hint bad" id="err_name" role="alert"></p>
       <div id="questions" style="display:flex;flex-direction:column;gap:18px"></div>
       <label for="ref" id="refBox"><span>Referral code <small id="refOpt">(if someone invited you)</small></span>
-        <input id="ref" placeholder="FUJIN-XXXX" autocapitalize="characters" autocomplete="off" spellcheck="false">
+        <input id="ref" placeholder="FUJIN-A0001UPR" autocapitalize="characters" autocomplete="off" spellcheck="false">
         <span class="lockrow" id="lockRow" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="3"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
           <span id="lockMsg">Locked from your invite link</span>
@@ -135,7 +135,7 @@ $("ref").addEventListener("blur", () => { if(!refLocked) checkRef(); });
 
 async function initRef(){
   const fromLink = (new URLSearchParams(location.search).get("ref") || "").trim().toUpperCase();
-  const code = /^FUJIN-[A-Z0-9]{4}$/.test(fromLink) ? fromLink : storedRef();
+  const code = /^FUJIN-[A-Z0-9]{4,14}$/.test(fromLink) ? fromLink : storedRef();
   if(code){ storeRef(code); lockRef(code); await checkRef(); }
 }
 

@@ -66,6 +66,7 @@ There is one form for everyone. The admin **Form** tab edits it, and `Code.gs` s
 - Someone who submits again with the same email keeps their original answers and referrer.
 - The server validates every submission against the saved form, so never rely on browser checks alone.
 - Add a new question type in `FormKit.TYPES` and `build()` in `formkit.js`, plus `FIELD_TYPES` and `validateAnswers_` in `Code.gs`.
+- **Referral codes** look like `FUJIN-A0001UPR`: `FUJIN-` is fixed, the letter is the year (A = 2026, B = 2027, ...), `0001` is the next sign-up number for that year, and the last three letters are the state from the form's State question (type `state`). One word = first three letters (Bihar = BIH); two words = first letter + first two letters of the second word (Uttar Pradesh = UPR); three or more = initials; "and", "of", "the" are ignored; no state = XXX. Codes are made in `newCode_` / `stateCode_` in `Code.gs`. Codes given out earlier keep their old format and keep working, so anything that checks a code must accept both (`/^FUJIN-[A-Z0-9]{4,14}$/`).
 - Other tabs: `Forms` (form definition), `Rewards` (tiers). Old tabs from earlier versions (`Responses`, `Form - ...`) are left alone; their answers are copied into Signups once.
 
 ## Page flow

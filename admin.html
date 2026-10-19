@@ -234,6 +234,10 @@
           <div class="card stack">
             <h2>Questions</h2>
             <p class="msg" style="margin-top:-6px">Saving adds a column for each new question, renames the column when you rename a question, and keeps the column of a deleted question (marked "removed") so no data is lost.</p>
+            <div id="stateNote" class="banner" hidden>
+              <strong>Add a State question.</strong> Referral codes look like <code>FUJIN-A0001UPR</code>, where the last three letters come from the person's state. Without a State question, new codes end in <code>XXX</code>.
+              <div class="row" style="margin-top:10px"><button type="button" id="addState" class="soft">Add State question</button></div>
+            </div>
             <div class="qcard locked"><strong>Full name</strong><span class="msg">Always asked. It identifies the person for referrals.</span></div>
             <div class="qcard locked"><strong>Email</strong><span class="msg">Always asked. One email is one person and one referral code.</span></div>
             <div id="fieldList" class="stack"></div>
@@ -247,7 +251,7 @@
             <label>Full name<input disabled placeholder="Full name"></label>
             <label>Email<input disabled placeholder="Email"></label>
             <div id="pvQuestions" class="stack"></div>
-            <label id="pvRef">Referral code <small>(if someone invited you)</small><input disabled placeholder="FUJIN-XXXX"></label>
+            <label id="pvRef">Referral code <small>(if someone invited you)</small><input disabled placeholder="FUJIN-A0001UPR"></label>
             <button type="button" id="pvSubmit" disabled class="big"></button>
           </div>
         </div>
@@ -448,7 +452,7 @@ function renderFieldList(){
   const box = $("fieldList"); box.textContent = "";
   draft.fields.forEach((f, i) => {
     const typeSel = h("select", {id:"ty-" + f.id, "aria-label":"Question type"}, FormKit.TYPES.map(([v, l]) => h("option", {value:v, selected: v === f.type}, l)));
-    typeSel.addEventListener("change", () => { f.type = typeSel.value; if(FormKit.CHOICE.includes(f.type) && !f.options.length) f.options = ["Option 1", "Option 2"]; renderFieldList(); touch(); });
+    typeSel.addEventListener("change", () => { f.type = typeSel.value; if(f.type === "state") f.options = FormKit.STATES.slice(); else if(FormKit.CHOICE.includes(f.type) && !f.options.length) f.options = ["Option 1", "Option 2"]; renderFieldList(); touch(); });
     const tool = (txt, label, fn, cls) => { const b = h("button", {type:"button", class:"tool " + (cls || ""), "aria-label":label, title:label}, txt); b.addEventListener("click", fn); return b; };
     const up = tool("↑", "Move up", () => { if(i > 0){ [draft.fields[i-1], draft.fields[i]] = [draft.fields[i], draft.fields[i-1]]; renderFieldList(); touch(); } });
     const down = tool("↓", "Move down", () => { if(i < draft.fields.length - 1){ [draft.fields[i+1], draft.fields[i]] = [draft.fields[i], draft.fields[i+1]]; renderFieldList(); touch(); } });
@@ -471,7 +475,13 @@ function renderFieldList(){
       h("label", {class:"tick", for:"rq-" + f.id}, req, "Required")));
   });
   if(!draft.fields.length) box.append(h("p", {class:"msg"}, "No extra questions. People will only be asked for name and email."));
+  $("stateNote").hidden = draft.fields.some(f => f.type === "state");
 }
+$("addState").addEventListener("click", () => {
+  const used = new Set(draft.fields.map(f => f.id));
+  draft.fields.push({id:used.has("state") ? blankField().id : "state", type:"state", label:"State", help:"Used for your referral code.", required:true, options:FormKit.STATES.slice()});
+  renderFieldList(); touch();
+});
 
 function renderPreview(){
   $("pvTitle").textContent = draft.title || "Join Fujin Labs";

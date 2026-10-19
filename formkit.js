@@ -1,8 +1,9 @@
 /* Builds a form from its field list and reads the answers back. Used by index.html (real form) and admin.html (live preview).
    Field shape: { id, type, label, help, required, options[] }. Types: short, long, email, phone, number, date, dropdown, radio, checkbox, consent. */
 const FormKit = (() => {
+  const STATES = ["Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal","Andaman and Nicobar Islands","Chandigarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Jammu and Kashmir","Ladakh","Lakshadweep","Puducherry"];
   const TYPES = [["short","Short answer"],["long","Paragraph"],["email","Email"],["phone","Phone"],["number","Number"],["date","Date"],
-    ["dropdown","Dropdown"],["radio","Multiple choice"],["checkbox","Checkboxes"],["consent","Consent checkbox"]];
+    ["dropdown","Dropdown"],["radio","Multiple choice"],["checkbox","Checkboxes"],["state","State (India)"],["consent","Consent checkbox"]];
   const CHOICE = ["dropdown","radio","checkbox"];
   const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
   const PHONE = /^[+\d][\d\s\-()]{5,19}$/;
@@ -17,7 +18,7 @@ const FormKit = (() => {
   function control(f, id){
     const base = {id, name:id};
     if(f.type === "long") return el("textarea", {...base, maxlength:2000});
-    if(f.type === "dropdown") return el("select", base, el("option", {value:""}, "Choose one"), f.options.map(o => el("option", {value:o}, o)));
+    if(f.type === "dropdown" || f.type === "state") return el("select", base, el("option", {value:""}, f.type === "state" ? "Choose your state" : "Choose one"), (f.type === "state" && !f.options.length ? STATES : f.options).map(o => el("option", {value:o}, o)));
     const attrs = {short:{type:"text", maxlength:300}, email:{type:"email", inputmode:"email", autocomplete:"email"}, phone:{type:"tel", inputmode:"tel", autocomplete:"tel"},
       number:{type:"number", inputmode:"decimal", step:"any"}, date:{type:"date"}}[f.type] || {type:"text"};
     return el("input", {...base, ...attrs});
@@ -72,5 +73,5 @@ const FormKit = (() => {
     return {answers};
   }
 
-  return {TYPES, CHOICE, render, collect, el};
+  return {TYPES, CHOICE, STATES, render, collect, el};
 })();
