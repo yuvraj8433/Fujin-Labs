@@ -296,6 +296,11 @@ const safe_ = v => { v = String(v == null ? '' : v).trim(); return /^[=+\-@]/.te
 const json_ = obj => ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 const flat_ = a => a && a.v !== undefined ? (Array.isArray(a.v) ? a.v.join(', ') : (a.v === true ? 'Yes' : a.v)) : '';
 
+// The question that holds the person's state: the State (India) type, or any question whose label says "state".
+function findStateField_(form) {
+  return form.fields.find(f => f.type === 'state') || form.fields.find(f => f.id === 'state') || form.fields.find(f => /\bstate\b/i.test(f.label)) || null;
+}
+
 // Three letters for a state: one word = its first three letters (Bihar = BIH); two words = first letter of the first
 // word + first two letters of the second (Uttar Pradesh = UPR); three or more = their initials (Dadra Nagar Haveli = DNH).
 // "and", "of" and "the" are ignored. No state given = XXX.
@@ -309,8 +314,8 @@ function stateCode_(name) {
 }
 
 // FUJIN-A0001UPR: A = the year (A = 2026, B = 2027, ...), 0001 = the next sign-up number for that year, UPR = the state.
-function newCode_(taken, stateName) {
-  const letter = String.fromCharCode(65 + Math.min(25, Math.max(0, new Date().getFullYear() - 2026)));
+function newCode_(taken, stateName, year) {
+  const letter = String.fromCharCode(65 + Math.min(25, Math.max(0, (year || new Date().getFullYear()) - 2026)));
   let max = 0;
   Object.keys(taken).forEach(c => { const m = /^FUJIN-([A-Z])(\d{4,})[A-Z]{3}$/.exec(c); if (m && m[1] === letter) max = Math.max(max, Number(m[2])); });
   let n = max + 1, code;
@@ -382,7 +387,7 @@ function doPost(e) {
       data.forEach(r => taken[r[L.code]] = true);
       let ref = form.settings.referral === false ? '' : String(req.ref || '').trim().toUpperCase();
       if (!taken[ref]) ref = '';
-      const stateField = form.fields.find(f => f.type === 'state');
+      const stateField = findStateField_(form);
       const code = newCode_(taken, stateField && a[stateField.id] ? a[stateField.id].v : '');
       const rowNum = sh.getLastRow() + 1;
 
@@ -443,6 +448,30 @@ function doPost(e) {
         if (idx < 0) return json_({ error: 'Not found' });
         sh.deleteRow(idx + 2);
         return json_({ ok: true });
+      }
+
+      // Gives people who still have an old-format code (or one ending in XXX) a FUJIN-A0001UPR style code, in the order they joined.
+      if (req.action === 'a_recode') {
+        const sf = findStateField_(form);
+        const si = sf ? form.cols.indexOf(sf.id) : -1;
+        const NEW = /^FUJIN-([A-Z])(\d{4,})([A-Z]{3})$/;
+        const taken = {};
+        data.forEach(r => taken[r[L.code]] = true);
+        const map = {}, changes = [];
+        data.map((r, i) => i).sort((x, y) => new Date(data[x][0]) - new Date(data[y][0]) || x - y).forEach(i => {
+          const r = data[i], old = r[L.code], m = NEW.exec(old);
+          const stateName = si >= 0 ? r[QSTART - 1 + si] : '';
+          if (m && !(m[3] === 'XXX' && stateCode_(stateName) !== 'XXX')) return;     // already fine
+          const code = newCode_(taken, stateName, new Date(r[0]).getFullYear() || undefined);
+          taken[code] = true; map[old] = code;
+          changes.push({ name: r[1], email: r[2], old: old, code: code });
+        });
+        if (changes.length) {
+          const n = data.length;
+          sh.getRange(2, L.code + 1, n, 1).setValues(data.map(r => [map[r[L.code]] || r[L.code]]));
+          sh.getRange(2, L.ref + 1, n, 1).setValues(data.map(r => [map[r[L.ref]] || r[L.ref]]));
+        }
+        return json_({ ok: true, changed: changes.length, changes: changes });
       }
 
       if (req.action === 'a_tiers') {

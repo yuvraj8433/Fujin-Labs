@@ -208,6 +208,11 @@
         <label for="q">Search<input id="q" type="search" placeholder="Name, email, company, code"></label>
         <label for="fStatus">Reward<select id="fStatus"><option value="">All</option><option value="__ready">Ready to reward</option></select></label>
       </div>
+      <div id="codeNote" class="banner" hidden>
+        <strong id="codeNoteTitle"></strong> <span id="codeNoteBody"></span>
+        <div class="row" style="margin-top:10px"><button type="button" id="recode" class="soft">Update codes to the new format</button></div>
+        <p class="msg" id="recodeMsg" role="status" style="margin-top:8px"></p>
+      </div>
       <div class="listhead" aria-hidden="true"><span>Person</span><span>Code</span><span>Referrals</span><span>Reward</span><span>Joined</span><span></span></div>
       <div class="list" id="list"></div>
     </section>
@@ -408,8 +413,30 @@ function filteredRows(){
     .sort((a,b) => new Date(b.ts) - new Date(a.ts));
 }
 
+const NEW_CODE = /^FUJIN-[A-Z]\d{4,}[A-Z]{3}$/;
+function renderCodeNote(){
+  const old = DATA.rows.filter(r => !NEW_CODE.test(r.code) || (r.code.endsWith("XXX") && DATA.form.fields.some(f => f.type === "state" || /\bstate\b/i.test(f.label)) && Object.values(r.answers).some(a => /\bstate\b/i.test(a.l) && a.v)));
+  $("codeNote").hidden = !old.length; $("recode").hidden = false;
+  if(!old.length) return;
+  $("codeNoteTitle").textContent = old.length + (old.length === 1 ? " person has" : " people have") + " a referral code in the old format.";
+  $("codeNoteBody").textContent = "Update them to the FUJIN-A0001UPR style (year, serial number, state). Anyone who already shared their old link will need to share the new one.";
+}
+let recodeArmed = false;
+$("recode").addEventListener("click", async e => {
+  const b = e.target, m = $("recodeMsg");
+  if(!recodeArmed){ recodeArmed = true; b.classList.add("danger", "sure"); b.textContent = "Tap again to update the codes"; setTimeout(() => { recodeArmed = false; b.classList.remove("danger", "sure"); b.textContent = "Update codes to the new format"; }, 5000); return; }
+  recodeArmed = false; b.classList.remove("danger", "sure"); b.textContent = "Update codes to the new format"; b.disabled = true; m.className = "msg"; m.textContent = "Updating...";
+  try{
+    const out = await call("a_recode", {});
+    await load();
+    $("codeNote").hidden = false; $("codeNoteTitle").textContent = out.changed ? "Codes updated." : "Nothing to update."; $("codeNoteBody").textContent = ""; $("recode").hidden = true; $("recodeMsg").className = "msg ok";
+    $("recodeMsg").textContent = out.changed ? "Updated " + out.changed + ": " + out.changes.map(c => c.name + " " + c.old + " → " + c.code).join("; ") : "Nothing to update.";
+  }catch(x){ m.className = "msg bad"; m.textContent = x.message; }
+  b.disabled = false;
+});
+
 function renderPeople(){
-  fillStatusFilter();
+  fillStatusFilter(); renderCodeNote();
   const rows = filteredRows();
   $("shown").textContent = rows.length + " of " + DATA.rows.length;
   const list = $("list"); list.textContent = "";
